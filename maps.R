@@ -115,12 +115,24 @@ setwd("C:/Users/FHernandez/Desktop/Arlington County Food Security/Quantitative A
              crs = 4269) %>% 
     st_transform(crs = 6487)
 
-    fs <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County.csv")
-
-  fs_mfi <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County%20-%20MFI.csv")  
+  #fs <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County.csv")
   
-  acs_fs <- merge(wide_acs, fs, all=T)
-  acs_fsmfi <- merge(wide_acs, fs_mfi, all=T)
+    fs <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County.csv") %>%
+      mutate(tract = str_replace(str_extract(geography, "\\d+\\.?\\d+"), "\\.", ""),
+             GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0"))
+    
+  #fs_mfi <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County%20-%20MFI.csv")
+  fs_mfi <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County%20-%20MFI.csv") %>%
+    mutate(tract = str_replace(str_extract(geography, "\\d+\\.?\\d+"), "\\.", ""),
+           GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0"))
+  
+  
+  #acs_fs <- merge(wide_acs, fs, all=T)
+  #acs_fsmfi <- merge(wide_acs, fs_mfi, all=T)
+  
+  acs_fs <- wide_acs %>% left_join(fs, by = "GEOID")
+  acs_fsmfi <- wide_acs %>% left_join(fs_mfi, by = "GEOID")
+  
 
 set_urbn_defaults(style = "map")
 urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
