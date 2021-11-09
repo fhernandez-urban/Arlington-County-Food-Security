@@ -37,7 +37,14 @@ routes <- rbind(routes_car_rush, routes_car_wknd, routes_transit)
 
 acs <- read_process_acs()
   
-  
+
+fi_raw <- read_csv("Raw FI/Food Insecurity Rates - Arlington County - MFI.csv")
+
+fi_raw <- fi_raw %>%
+  mutate(tract = str_replace(str_extract(geography, "\\d+\\.?\\d+"), "\\.", ""),
+         GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0"))
+
+ 
 routes_wide <- routes %>%
   select(geoid_end, geoid_start, adj_duration, mode, date) %>%
   #mutate(mode = factor(mode)) %>%
@@ -72,9 +79,9 @@ routes_acs <- routes_wide %>%
          wt_duration = CAR * (1 - pct_no_car/100) + TRANSIT * (pct_no_car/100),
          wt_duration_com = CAR * pct_car_commute/100 + TRANSIT * (1 - pct_car_commute/100))
 
-food_sites <- read_csv(here("Final food data", "Food_retailers_TRANSPORT.csv")) %>%
+food_sites <- read_csv(here("Final food data/Food site data", "Food_retailers_TRANSPORT.csv")) %>%
   #Exclude food sites that are available by appointment
-  filter(frequency_visits != "By appointment/upon request or other")
+  filter(is.na(frequency_visit) | frequency_visit != "Other frequency") %>%
   st_as_sf(coords = c("longitude", "latitude")) %>%
   st_set_crs(4269) 
 
@@ -89,54 +96,26 @@ tract_food <- tract_food %>%
          char_open_all = case_when(elig_type == "No age restriction" ~ 1,
                                T ~ 0),
          char_open_weekly = case_when((elig_type == "No age restriction" & 
-                                         frequency_visits %in% c("More than once a week", 
-                                                                 "Weekly")) ~ 1,
+                                         frequency_visit == "Weekly or more frequent") ~ 1,
                                    T ~ 0),
-         char_open_mult_per_month = case_when((elig_type == "No age restriction" & 
-                                         frequency_visits %in% c("More than once a month, less than weekly",
-                                                                 "More than once a week", 
-                                                                 "Weekly")) ~ 1,
-                                      T ~ 0),
          char_child_all = case_when(elig_type == "Open to children only" ~ 1,
                                 T ~ 0),
          char_child_weekly = case_when((elig_type == "Open to children only" &
-                                          frequency_visits %in% c("More than once a week", 
-                                                                  "Weekly")) ~ 1,
-                                    T ~ 0),
-         char_child_mult_per_month = case_when((elig_type == "Open to children only" & 
-                                                  frequency_visits %in% c("More than once a month, less than weekly",
-                                                                          "More than once a week", 
-                                                                          "Weekly")) ~ 1,
+                                          frequency_visit == "Weekly or more frequent") ~ 1,
                                     T ~ 0),
          char_sen_all = case_when(elig_type == "Open to seniors only" ~ 1,
                               T ~ 0),
          char_sen_weekly = case_when((elig_type == "Open to seniors only" &
-                                        frequency_visits %in% c("More than once a week", 
-                                                                "Weekly")) ~ 1,
-                                  T ~ 0),
-         char_sen_mult_per_month = case_when((elig_type == "Open to seniors only" & 
-                                                frequency_visits %in% c("More than once a month, less than weekly",
-                                                                        "More than once a week", 
-                                                                        "Weekly")) ~ 1,
+                                        frequency_visit == "Weekly or more frequent") ~ 1,
                                   T ~ 0)
   )
 
 tract_food_count <- tract_food %>%
   group_by(GEOID) %>%
-  summarise(vars(starts_with("char"), is_snap, is_charitable),
-               sum, na.rm = TRUE
+  summarise(across(c(starts_with("char"), is_snap, is_charitable),
+               sum, na.rm = TRUE)
   )
 
-
-# tract_food_count <- tract_food %>%
-#   group_by(GEOID) %>%
-#   summarise_at(
-#     count_snap = sum(is_snap, na.rm = TRUE),
-#     
-#     count_char_open_all = sum(char_open_all, na.rm = TRUE),
-#     count_char_child_all = sum(char_child_all, na.rm = TRUE),
-#     count_char_sen_all = sum(char_sen_all, na.rm = TRUE),
-#   )
 
 routes_all <- routes_acs %>%
   left_join(tract_food_count, by = c("geoid_end" = "GEOID"))
@@ -148,29 +127,49 @@ routes_all <- read_csv(here("routing/data", "routes_all.csv"),
                                       "geoid_end" = "character",
                                       "date" = "character"))
 
-fi <- read_csv(here("Food insecurity rates", 
-                    "Food Insecurity Rates - Arlington County.csv"),
-               col_types = c("GEOID" = "character")) 
+fi <- read_csv(here("Final food data/ACS and FI-MFI", 
+                    "FI_ACS_data.csv"),
+               col_types = c("geoid" = "character")) %>%
+  select(geoid, percent_food_insecure)
 
 
-mfi <- read_csv(here("Food insecurity rates", 
-                     "Food Insecurity Rates - Arlington County - MFI.csv"),
-                col_types = c("GEOID" = "character"))
+mfi <- read_csv(here("Final food data/ACS and FI-MFI", 
+                     "FI_ACS_data.csv"),
+                col_types = c("geoid" = "character")) %>%
+  select(geoid, percent_mfi = percent_food_insecure)
 
 all_fi <- fi %>%
-  select(GEOID, percent_food_insecure) %>%
-  left_join(mfi %>% select(GEOID, percent_mfi = percent_food_insecure), 
-            by = "GEOID") %>%
+  left_join(mfi, by = "geoid") %>%
   # set at in the top quartile of tracts
   mutate(is_high_fi = ifelse(percent_food_insecure > .12, 1, 0),
          is_high_mfi = ifelse(percent_mfi > .12, 1, 0)) 
 
 snap_wkdy <- travel_time_to_closest(all_data = routes_all, 
-                                       food_type = count_snap,
+                                       food_type = is_snap,
                                        dur_type = wt_duration,
                                        route_date = "2021-09-15") %>%
-  left_join(all_fi, by = c("geoid_start" = "GEOID")) %>%
-  mutate(high_need_low_access_snap = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0))
+  left_join(all_fi, by = c("geoid_start" = "geoid")) %>%
+  mutate(high_need_low_access_snap_15 = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0),
+         high_need_low_access_snap_20 = ifelse((is_high_fi == 1) & (min_duration > 20), 1, 0))
+
+
+snap_transit_wkdy <- travel_time_to_closest(all_data = routes_all, 
+                                    food_type = is_snap,
+                                    dur_type = TRANSIT,
+                                    route_date = "2021-09-15") %>%
+  left_join(all_fi, by = c("geoid_start" = "geoid")) %>%
+  mutate(high_need_low_access_snap_15 = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0),
+         high_need_low_access_snap_20 = ifelse((is_high_fi == 1) & (min_duration > 20), 1, 0))
+
+
+snap_transit_wknd <- travel_time_to_closest(all_data = routes_all, 
+                                            food_type = is_snap,
+                                            dur_type = TRANSIT,
+                                            route_date = "2021-09-19") %>%
+  left_join(all_fi, by = c("geoid_start" = "geoid")) %>%
+  mutate(high_need_low_access_snap_15 = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0),
+         high_need_low_access_snap_20 = ifelse((is_high_fi == 1) & (min_duration > 20), 1, 0))
+
 
 char_open_wkdy <- travel_time_to_closest(all_data = routes_all, 
                                     food_type = count_char_open,
