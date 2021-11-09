@@ -1,0 +1,10 @@
+##Overview of variables
+
+*Charitable food site variables (only available for charitable food sites)
+#Eligibility
+**eligibility_requirements {STR}: Provides a description of the different eligibility requirements that a food site has.
+**eligibility_requirement {BYTE}: only available for charitable food sites. Dicho variable indicating whether a food site has any eligibility requirement.
+
+#Frequency
+**frequency {STR}: only available for charitable food sites. Provides description of when food sites are open to the public.
+**frequency_visit {FLOAT}: categorical variable (1-Weekly or more frequently, 2-less than weekly, monthly or more, 3-other frequency). 
