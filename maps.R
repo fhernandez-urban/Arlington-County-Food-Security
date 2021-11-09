@@ -119,12 +119,14 @@ setwd("C:/Users/FHernandez/Desktop/Arlington County Food Security/Quantitative A
   
     fs <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County.csv") %>%
       mutate(tract = str_replace(str_extract(geography, "\\d+\\.?\\d+"), "\\.", ""),
-             GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0"))
+             GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0")) %>%
+      select(-tract)
     
   #fs_mfi <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County%20-%20MFI.csv")
   fs_mfi <- read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/Food%20Insecurity%20Rates%20-%20Arlington%20County%20-%20MFI.csv") %>%
     mutate(tract = str_replace(str_extract(geography, "\\d+\\.?\\d+"), "\\.", ""),
-           GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0"))
+           GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0")) %>%
+    select(-tract)
   
   
   #acs_fs <- merge(wide_acs, fs, all=T)
