@@ -116,6 +116,10 @@ tract_food_count <- tract_food %>%
                sum, na.rm = TRUE)
   )
 
+# Number of tracts in Arlington County with a SNAP retailer in the tract
+tract_food_count %>%
+  filter(substr(GEOID, 1, 5) == "51013", is_snap > 0) %>%
+  nrow()
 
 routes_all <- routes_acs %>%
   left_join(tract_food_count, by = c("geoid_end" = "GEOID"))
@@ -144,54 +148,49 @@ all_fi <- fi %>%
   mutate(is_high_fi = ifelse(percent_food_insecure > .12, 1, 0),
          is_high_mfi = ifelse(percent_mfi > .12, 1, 0)) 
 
-snap_wkdy <- travel_time_to_closest(all_data = routes_all, 
-                                       food_type = is_snap,
-                                       dur_type = wt_duration,
-                                       route_date = "2021-09-15") %>%
-  left_join(all_fi, by = c("geoid_start" = "geoid")) %>%
-  mutate(high_need_low_access_snap_15 = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0),
-         high_need_low_access_snap_20 = ifelse((is_high_fi == 1) & (min_duration > 20), 1, 0))
+# number of tracts in Arlington with high food insecurity
+sum(snap_transit_wkdy$is_high_mfi, na.rm = TRUE)
 
 
-snap_transit_wkdy <- travel_time_to_closest(all_data = routes_all, 
-                                    food_type = is_snap,
-                                    dur_type = TRANSIT,
-                                    route_date = "2021-09-15") %>%
-  left_join(all_fi, by = c("geoid_start" = "geoid")) %>%
-  mutate(high_need_low_access_snap_15 = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0),
-         high_need_low_access_snap_20 = ifelse((is_high_fi == 1) & (min_duration > 20), 1, 0))
+route_date <- c("2021-09-15", "2021-09-19")
+food_type <- c("is_snap", "is_charitable", "char_open_all", "char_open_weekly",
+               "char_sen_all", "char_sen_weekly", "char_child_all", "char_child_weekly")
+dur_type <- c("wt_duration", "wt_duration_com", "TRANSIT")
+
+ttc_params <- expand_grid(
+  route_date = route_date,
+  food_type = food_type,
+  dur_type = dur_type
+)
 
 
-snap_transit_wknd <- travel_time_to_closest(all_data = routes_all, 
-                                            food_type = is_snap,
-                                            dur_type = TRANSIT,
-                                            route_date = "2021-09-19") %>%
-  left_join(all_fi, by = c("geoid_start" = "geoid")) %>%
-  mutate(high_need_low_access_snap_15 = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0),
-         high_need_low_access_snap_20 = ifelse((is_high_fi == 1) & (min_duration > 20), 1, 0))
+all_ttc <- pmap_dfr(ttc_params, 
+                    travel_time_to_closest, 
+                    all_data = routes_all,
+                    fi_data = all_fi)
 
 
-char_open_wkdy <- travel_time_to_closest(all_data = routes_all, 
-                                    food_type = count_char_open,
-                                    dur_type = wt_duration,
-                                    route_date = "2021-09-15")
+cwt_params <- expand_grid(
+  route_date = route_date,
+  food_type = food_type,
+  dur_type = dur_type,
+  t = c(15, 20)
+)
 
-char_child_wkdy <- travel_time_to_closest(all_data = routes_all, 
-                                    food_type = count_char_child,
-                                    dur_type = wt_duration,
-                                    route_date = "2021-09-15")
+all_cwt <- pmap_dfr(cwt_params, 
+                    count_accessible_within_t, 
+                    all_data = routes_all,
+                    fi_data = all_fi)
 
-char_senior_wkdy <- travel_time_to_closest(all_data = routes_all, 
-                                          food_type = count_char_sen,
-                                          dur_type = wt_duration,
-                                          route_date = "2021-09-15")
 
-snap_wkdy_com <- travel_time_to_closest(all_data = routes_all, 
-                                    food_type = count_snap,
-                                    dur_type = wt_duration_com,
-                                    route_date = "2021-09-15") %>%
-  left_join(all_fi, by = c("geoid_start" = "GEOID")) %>%
-  mutate(high_need_low_access_snap = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0))
+count_snap <- all_cwt %>%
+  filter(food_type == "is_snap", 
+         dur_type == "TRANSIT",
+         time == 20) %>%
+  filter(geoid_start != "51013103401") %>%
+  group_by(route_date) %>%
+  summarise(min_count = min(count, na.rm = TRUE),
+            max_count = max(count, na.rm = TRUE))
 
 snap_wkdy_count <- count_accessible_within_t(all_data = routes_all, 
                                              food_type = count_snap, 

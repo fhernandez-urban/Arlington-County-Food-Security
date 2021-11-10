@@ -51,15 +51,23 @@ read_process_acs <- function() {
 
 
 travel_time_to_closest <- function(all_data, 
+                                   fi_data,
                                    food_type, 
                                    dur_type,
                                    route_date) {
   
   time_to_closest <- all_data %>%
     # need to update based on data stucture
-    filter({{ food_type }} > 0, date == route_date) %>%
+    filter(.data[[food_type]] > 0, date == route_date) %>%
     group_by(geoid_start) %>%
-    summarise(min_duration = min({{ dur_type }}, na.rm = TRUE))
+    summarise(min_duration = min(.data[[dur_type]], na.rm = TRUE)) %>%
+    right_join(fi_data, by = c("geoid_start" = "geoid")) %>%
+    mutate(high_need_low_access_snap_15 = ifelse((is_high_fi == 1) & (min_duration > 15), 1, 0),
+           high_need_low_access_snap_20 = ifelse((is_high_fi == 1) & (min_duration > 20), 1, 0),
+           route_date = route_date,
+           dur_type = dur_type,
+           food_type = food_type)
+  
   
   return(time_to_closest)
 }
@@ -91,14 +99,21 @@ map_time_to_closest <- function(county_shp, ttc, opp){
 
 
 count_accessible_within_t <- function(all_data, 
+                                      fi_data,
                                       food_type, 
                                       dur_type, 
                                       t, 
                                       route_date) {
   count_within_t <- all_data %>%
-    filter({{ food_type }} > 0, {{ dur_type }} <= t, date == route_date) %>%
+    filter(.data[[food_type]] > 0, .data[[dur_type]] <= t, date == route_date) %>%
     group_by(geoid_start) %>%
-    summarise(count = sum( {{ food_type }} ))
+    summarise(count = sum(.data[[food_type]], na.rm = TRUE)) %>%
+    right_join(fi_data, by = c("geoid_start" = "geoid")) %>%
+    mutate(route_date = route_date,
+           dur_type = dur_type,
+           food_type = food_type,
+           time = t)
+  
   
 
   return(count_within_t)
