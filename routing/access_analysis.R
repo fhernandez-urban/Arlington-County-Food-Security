@@ -170,6 +170,30 @@ all_ttc <- pmap_dfr(ttc_params,
                     fi_data = all_fi)
 
 
+num_no_access_snap_20 <- all_ttc %>%
+  filter(food_type == "is_snap", min_duration > 20) %>%
+  group_by(dur_type, route_date) %>%
+  summarise(count = n())
+
+num_no_access_snap_15 <- all_ttc %>%
+  filter(food_type == "is_snap", min_duration > 15) %>%
+  group_by(dur_type, route_date) %>%
+  summarise(count = n())
+
+
+high_need_low_access <- all_ttc %>%
+  group_by(food_type, dur_type, route_date) %>%
+  summarise(high_need_low_access_15 = sum(high_need_low_access_snap_15, na.rm = TRUE),
+            high_need_low_access_20 = sum(high_need_low_access_snap_20, na.rm = TRUE))
+
+
+low_access <- all_ttc %>%
+  mutate(over_15 = ifelse(min_duration > 15, 1, 0),
+         over_20 = ifelse(min_duration > 20, 1, 0)) %>%
+  group_by(food_type, dur_type, route_date) %>%
+  summarise(low_access_15 = sum(over_15, na.rm = TRUE),
+            low_access_20 = sum(over_20, na.rm = TRUE))
+
 cwt_params <- expand_grid(
   route_date = route_date,
   food_type = food_type,
@@ -185,10 +209,9 @@ all_cwt <- pmap_dfr(cwt_params,
 
 count_snap <- all_cwt %>%
   filter(food_type == "is_snap", 
-         dur_type == "TRANSIT",
          time == 20) %>%
-  filter(geoid_start != "51013103401") %>%
-  group_by(route_date) %>%
+  filter(!geoid_start %in% c("51013103401","51013980200", "51013980100")) %>%
+  group_by(route_date, dur_type) %>%
   summarise(min_count = min(count, na.rm = TRUE),
             max_count = max(count, na.rm = TRUE))
 
@@ -200,11 +223,35 @@ snap_wkdy_count <- count_accessible_within_t(all_data = routes_all,
 # look for just transit
 # look at number of retailers accessible
 
-map_snap <- map_time_to_closest(acs, snap_wkdy, "SNAP Retailer")
+map_char_ttc <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_all",
+           dur_type == "wt_duration_com"),
+  county_shp = acs,
+  opp = "Charitable Food Location",
+  need_var = "is_high_fi")
+
+map_char_ttc_wkly <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_weekly",
+           dur_type == "wt_duration_com"),
+  county_shp = acs,
+  opp = "Weekly Charitable Food Location",
+  need_var = "is_high_fi")
 
 map_snap_com <- map_time_to_closest(acs, snap_wkdy_com, "SNAP Retailer")
 
 map_char <- map_time_to_closest(acs, char_open_wkdy, "Open Charitable Food Site")
 
-
+map_count_snap <- map_count_within_t(
+  count_within_t = all_cwt %>%
+    filter(route_date == "2021-09-15", 
+           food_type == "is_snap",
+           dur_type == "wt_duration_com",
+           time == 20),
+  county_shp = acs,
+  opp = "SNAP Retailers",
+  need_var = "is_high_fi")
 

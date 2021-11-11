@@ -72,11 +72,15 @@ travel_time_to_closest <- function(all_data,
   return(time_to_closest)
 }
 
-map_time_to_closest <- function(county_shp, ttc, opp){
+map_time_to_closest <- function(county_shp, ttc, opp, need_var){
 
   ttc_shp <- left_join(county_shp, 
                            ttc, 
-                           by = c("GEOID" = "geoid_start"))
+                           by = c("GEOID" = "geoid_start")) %>%
+    mutate({{ need_var }} := as.factor(.data[[need_var]]),
+           min_duration = ifelse(min_duration > 60, NA_real_, min_duration))
+           #line_thickness = case_when(.data[[need_var]] == 1 ~ 0.2,
+           #                          T ~ 0.1))
   
   opp_formatted <- gsub("\ ", "_", tolower(opp))
   
@@ -84,8 +88,10 @@ map_time_to_closest <- function(county_shp, ttc, opp){
   urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
   
   time_to_closest <- ggplot() +
-    geom_sf(data = ttc_shp, mapping = aes(fill = min_duration)) +
+    geom_sf(data = ttc_shp, mapping = aes(fill = min_duration, 
+                                          color = .data[[need_var]])) +
     scale_fill_gradientn(colours = urban_colors) +
+    scale_color_manual(values = c(palette_urbn_main[["gray"]], palette_urbn_main[["yellow"]])) + 
     labs(title = str_glue("Weighted Travel Time to Closest {opp}\n in Arlington County "), 
          fill = "Time (minutes)") +
     guides(fill = guide_colourbar(barheight = 8)) 
@@ -105,7 +111,7 @@ count_accessible_within_t <- function(all_data,
                                       t, 
                                       route_date) {
   count_within_t <- all_data %>%
-    filter(.data[[food_type]] > 0, .data[[dur_type]] <= t, date == route_date) %>%
+    filter(.data[[dur_type]] <= t, date == route_date) %>%
     group_by(geoid_start) %>%
     summarise(count = sum(.data[[food_type]], na.rm = TRUE)) %>%
     right_join(fi_data, by = c("geoid_start" = "geoid")) %>%
@@ -119,23 +125,29 @@ count_accessible_within_t <- function(all_data,
   return(count_within_t)
 }
 
-map_count_within_t <- function(count_within_t, county_shp){
+map_count_within_t <- function(count_within_t, county_shp, opp, need_var){
   count_within_t <- left_join(county_shp, 
                                 count_within_t, 
-                                by = c("GEOID" = "start_geoid"))
+                                by = c("GEOID" = "geoid_start")) %>%
+    mutate({{ need_var }} := as.factor(.data[[need_var]]))
   
+  time <- count_within_t %>% pull(time) %>% unique()
   set_urbn_defaults(style = "map")
   urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
   
+  opp_formatted <- gsub("\ ", "_", tolower(opp))
   
   count_t <- ggplot() +
-    geom_sf(data = count_within_t, mapping = aes(fill = count)) +
+    geom_sf(data = count_within_t, mapping = aes(fill = count, color = .data[[need_var]])) +
     scale_fill_gradientn(colours = urban_colors) +
-    labs(title = str_glue("Number of {food_type} accessible within {t} minutes by {mode}"), 
-         fill = str_glue("Number {food_type}")) +
-    guides(fill = guide_colourbar(barheight = 8)) +
-    ggsave(here("images", 
-                paste(food_type, "_number_within_", t, ".png", sep = "")))
+    scale_color_manual(values = c(palette_urbn_main[["gray"]], palette_urbn_main[["yellow"]])) +
+    labs(title = str_glue("Number of {opp} accessible within {time} minutes"), 
+         fill = str_glue("Number {opp}")) +
+    guides(fill = guide_colourbar(barheight = 8)) 
+    ggsave(
+      plot = count_t,
+      filename = here("routing/images", 
+                paste0(opp_formatted, "_number_within_", time, ".png")))
   
   return(count_t)
 }  
