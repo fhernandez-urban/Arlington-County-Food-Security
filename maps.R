@@ -1,4 +1,3 @@
-
 # Date: November 24, 2020 
 # Project: ArCo Food insecurity
 # Author: Fernando Hernandez
@@ -122,22 +121,30 @@ acs_ficombo <- wide_acs %>% left_join(combined_FI_MFI, by = "GEOID")
 
 #Retailer data
 ##SNAP Retailers
-snap_fs <- read_csv("Final food data/Food site data/Food_retailers_MAPPING.csv")
+snap_fs <- read_csv("Food site data/Food_retailers_MAPPING.csv")
 snap_fs<-snap_fs[!(snap_fs$zip_code==22306 | snap_fs$zip_code==22044),]
 
 ##Charitable food sites
-cfs_all <- read.csv("Final food data/Food site data/Food_retailers_cfs_elig.csv")
+cfs_all <- read.csv("Food site data/Food_retailers_cfs_o2a.csv")
+cfs_kids <- read.csv("Food site data/Food_retailers_cfs_child.csv")
+cfs_elder <- read.csv("Food site data/Food_retailers_cfs_elder.csv")
 
 ##Non-SNAP retailers
-non_snap <-read.csv("Non_SNAP_Retailers.csv")
+non_snap <-read.csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Non_SNAP_Retailers.csv")
 
 ##Setting geo
-foodsites1 <- snap_fs %>%
+fsite_all <- snap_fs %>%
   st_as_sf(coords = c("longitude", "latitude"),
            crs = 4269) %>% 
   st_transform(crs = 6487)
 
-foodsites2 <- cfs_all %>%
+fsite_snap <- snap_fs %>%
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4269) %>% 
+  st_transform(crs = 6487)%>% 
+  filter(!location_type %in% c("Charitable food-site"))
+
+fs_cfsall <- cfs_all %>%
   st_as_sf(coords = c("longitude", "latitude"),
            crs = 4269) %>% 
   st_transform(crs = 6487)%>% 
@@ -145,11 +152,33 @@ foodsites2 <- cfs_all %>%
   filter(!objectid %in% c("75"))%>% 
   filter(!objectid %in% c("48"))
 
+fs_cfskids <- cfs_kids %>%
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4269) %>% 
+  st_transform(crs = 6487)%>% 
+  filter(!zip_code %in% c("22306"))%>% 
+  filter(!objectid %in% c("75"))%>% 
+  filter(!objectid %in% c("48"))
+
+fs_cfselders <- cfs_elder %>%
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4269) %>% 
+  st_transform(crs = 6487)%>% 
+  filter(!zip_code %in% c("22306"))%>% 
+  filter(!objectid %in% c("75"))%>% 
+  filter(!objectid %in% c("48"))
+
+##NEEDS TO BE FIXED
+fsite_nonsnap <- non_snap %>%
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4269) %>% 
+  st_transform(crs = 6487)
+
 
 #MISC
 set_urbn_defaults(style = "map")
 urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
-
+fsite_colors <- c("#ec008b", "#fdbf11")
 
 # Function to produce maps ------------------------------------------------
 
@@ -157,26 +186,166 @@ urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719
 road <- roads(state = "Virginia", county = "013")
 
 #function to make demographic map
-
-map_demographic <-  function (data1 = acs_ficombo,data2=foodsites2, percent_variable = "pct_latine", title = "Percent Latine Population"){
+##All retailers (except nonSNAP)
+map_all <-  function (data1 = acs_ficombo,data2=fsite_all, percent_variable = "pct_latine", title = "Percent Latine Population"){
   percent_variable <- rlang::sym(percent_variable)
   plot <- ggplot() +
-    geom_sf(data=data1, aes(fill = !!percent_variable), color = "grey")+
+    geom_sf(data=acs_ficombo, aes(fill = FI), color = "grey")+
     geom_sf(data = road,
             color="grey", fill="white", size=0.25, alpha =.5)+
-    scale_fill_gradientn(name = title, colours = urban_colors, labels = percent) +
-    geom_sf(data =data2, mapping = aes(color =elig_type), color = "#a4201d", 
-            size = 1.5, show.legend = "point", inherit.aes = F) +
-    scale_color_discrete(name = 'Eligibility Type') +
-    theme(legend.position = "top")
+    scale_fill_gradientn(name = "Share of food insecure households", colours = urban_colors, labels = percent, 
+                         limits = c(0,.15) ,breaks=c(0, .05, .10, .15)) +
+    geom_sf(data = fsite_all, mapping = aes(color = elig_type),color = "#e54096",size = 1.5, show.legend = "point", inherit.aes = F) +
+    scale_color_discrete(name = "Eligibility type")+
+    theme(legend.position = "left")
+}
+
+##SNAP retailers
+map_snap <-  function (data1 = acs_ficombo,data2=fsite_snap, percent_variable = "pct_latine", title = "Percent Latine Population"){
+  percent_variable <- rlang::sym(percent_variable)
+  plot <- ggplot() +
+    geom_sf(data=acs_ficombo, aes(fill = FI), color = "grey")+
+    geom_sf(data = road,
+            color="grey", fill="white", size=0.25, alpha =.5)+
+    scale_fill_gradientn(name = "Share of food insecure households", colours = urban_colors, labels = percent, 
+                         limits = c(0,.15) ,breaks=c(0, .05, .10, .15)) +
+    geom_sf(data = fsite_all, mapping = aes(color = elig_type),color = "#e54096",size = 1.5, show.legend = "point", inherit.aes = F) +
+    scale_color_discrete(name = "Eligibility type")+
+    theme(legend.position = "left")
   return(plot)
 }
 
-# example of using the function. Enter variable and title
-map_demographic(percent_variable = "pct_nlasian", title ="Percent Asian Population")
-map_demographic(percent_variable = "MFI", title ="Marginal Food Insecurity")
-map_demographic(percent_variable = "pct_nlasian", title ="Percent Asian Population")
-map_demographic(percent_variable = "pct_nlasian", title ="Percent Asian Population")
-map_demographic(percent_variable = "pct_nlasian", title ="Percent Asian Population")
+##Non-SNAP retailers
+map_nonsnap <-  function (data1 = acs_ficombo,data2=non_snap, percent_variable = "pct_latine", title = "Percent Latine Population"){
+  percent_variable <- rlang::sym(percent_variable)
+  plot <- ggplot() +
+    geom_sf(data=acs_ficombo, aes(fill = FI), color = "grey")+
+    geom_sf(data = road,
+            color="grey", fill="white", size=0.25, alpha =.5)+
+    scale_fill_gradientn(name = "Share of food insecure households", colours = urban_colors, labels = percent, 
+                         limits = c(0,.15) ,breaks=c(0, .05, .10, .15)) +
+    geom_sf(data = fsite_all, mapping = aes(color = elig_type),color = "#e54096",size = 1.5, show.legend = "point", inherit.aes = F) +
+    scale_color_discrete(name = "Eligibility type")+
+    theme(legend.position = "left")
+  return(plot)
+}
+
+##Charitable food sites - all
+map_cfsall <-  function (data1 = acs_ficombo,data2=fs_cfsall, percent_variable = "pct_latine", title = "Percent Latine Population"){
+  percent_variable <- rlang::sym(percent_variable)
+  plot <- ggplot() +
+    geom_sf(data=acs_ficombo, aes(fill = FI), color = "grey")+
+    geom_sf(data = road,
+            color="grey", fill="white", size=0.25, alpha =.5)+
+    scale_fill_gradientn(name = "Share of food insecure households", colours = urban_colors, labels = percent, 
+                         limits = c(0,.15) ,breaks=c(0, .05, .10, .15)) +
+    geom_sf(data = fsite_all, mapping = aes(color = elig_type),color = "#e54096",size = 1.5, show.legend = "point", inherit.aes = F) +
+    scale_color_discrete(name = "Eligibility type")+
+    theme(legend.position = "left")
+  return(plot)
+}
+
+##Charitable food sites - Children only
+map_cfskids <-  function (data1 = acs_ficombo,data2=fs_cfskids, percent_variable = "pct_latine", title = "Percent Latine Population"){
+  percent_variable <- rlang::sym(percent_variable)
+  plot <- ggplot() +
+    geom_sf(data=acs_ficombo, aes(fill = FI), color = "grey")+
+    geom_sf(data = road,
+            color="grey", fill="white", size=0.25, alpha =.5)+
+    scale_fill_gradientn(name = "Share of food insecure households", colours = urban_colors, labels = percent, 
+                         limits = c(0,.15) ,breaks=c(0, .05, .10, .15)) +
+    geom_sf(data = fsite_all, mapping = aes(color = elig_type),color = "#e54096",size = 1.5, show.legend = "point", inherit.aes = F) +
+    scale_color_discrete(name = "Eligibility type")+
+    theme(legend.position = "left")
+  return(plot)
+}
+
+##Charitable food sites - Elders only
+map_cfselders <-  function (data1 = acs_ficombo,data2=fs_cfselders, percent_variable = "pct_latine", title = "Percent Latine Population"){
+  percent_variable <- rlang::sym(percent_variable)
+  plot <- ggplot() +
+    geom_sf(data=acs_ficombo, aes(fill = FI), color = "grey")+
+    geom_sf(data = road,
+            color="grey", fill="white", size=0.25, alpha =.5)+
+    scale_fill_gradientn(name = "Share of food insecure households", colours = urban_colors, labels = percent, 
+                         limits = c(0,.15) ,breaks=c(0, .05, .10, .15)) +
+    geom_sf(data = fsite_all, mapping = aes(color = elig_type),color = "#e54096",size = 1.5, show.legend = "point", inherit.aes = F) +
+    scale_color_discrete(name = "Eligibility type")+
+    theme(legend.position = "left")
+  return(plot)
+}
 
 
+# MAPS
+#Arlington county
+ggplot(acs_ficombo, aes(fill = FI)) +
+  geom_sf() +
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5)+
+  scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
+                       limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
+  theme(legend.position = "left")
+ggsave("Final Maps/arco_fi.png", height = 6, width = 12, units = "in", dpi = 500)
+
+#FI and all food sites
+ggplot(acs_ficombo, aes(fill = FI)) +
+  geom_sf() +
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5)+
+  scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
+                       limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
+  theme(legend.position = "left")+
+  geom_sf(data = fsite_all, mapping = aes(color = location_type, ),size = 1.5, show.legend = "point", inherit.aes = F) +
+  scale_color_manual(name = "Type of food site", values = fsite_colors)+
+  theme(legend.position = "right")
+ggsave("Final Maps/fsites_fi.png", height = 6, width = 12, units = "in", dpi = 500)
+
+#Food insecurity and access to retail foods
+map_all(percent_variable = "FI", title ="Share of food insecure households")
+  ggsave("Final Maps/allretailers_fi.png", height = 6, width = 12, units = "in", dpi = 500)
+
+  map_snap(percent_variable = "FI", title ="Share of food insecure households")
+  ggsave("Final Maps/snap_fi.png", height = 6, width = 12, units = "in", dpi = 500)
+
+#Food security and access to CFS
+  map_cfsall(percent_variable = "FI", title ="Share of food insecure households")
+  ggsave("Final Maps/cfsall_fi.png", height = 6, width = 12, units = "in", dpi = 500)
+    
+    map_cfskids(percent_variable = "FI", title ="Share of food insecure households")
+    ggsave("Final Maps/cfskids_fi.png", height = 6, width = 12, units = "in", dpi = 500)
+  
+    map_cfselders(percent_variable = "FI", title ="Share of food insecure households")
+    ggsave("Final Maps/cfselders_fi.png", height = 6, width = 12, units = "in", dpi = 500)
+
+#SNAP/CFS and race
+    map_snap(percent_variable = "pct_nlasian", title ="Share of Non-Latine Asian population")
+    ggsave("Final Maps/snap_nlasian.png", height = 6, width = 12, units = "in", dpi = 500)
+    
+    map_snap(percent_variable = "pct_nlblack", title ="Share of Non-Latine Black population")
+    ggsave("Final Maps/snap_nlblack.png", height = 6, width = 12, units = "in", dpi = 500)
+    
+    map_snap(percent_variable = "pct_latine", title ="Share of Latine population")
+    ggsave("Final Maps/snap_latine.png", height = 6, width = 12, units = "in", dpi = 500)
+    
+    map_cfsall(percent_variable = "pct_nlasian", title ="Share of Non-Latine Asian population")
+    ggsave("Final Maps/cfsall_nlasian.png", height = 6, width = 12, units = "in", dpi = 500)
+    
+    map_cfsall(percent_variable = "pct_nlblack", title ="Share of Non-Latine Black population")
+    ggsave("Final Maps/cfsall_nlblack.png", height = 6, width = 12, units = "in", dpi = 500)
+    
+    map_cfsall(percent_variable = "pct_latine", title ="Share of Latine population")
+    ggsave("Final Maps/cfsall_latine.png", height = 6, width = 12, units = "in", dpi = 500)
+
+#Income to rent and SNAP/CFS
+    map_snap(percent_variable = "pct_incrent35", title ="Share of households whose rent is 35% or more of their income")
+    ggsave("Final Maps/snap_rentinc.png", height = 6, width = 12, units = "in", dpi = 500)
+    
+    map_cfsall(percent_variable = "pct_incrent35", title ="Share of households whose rent is 35% or more of their income")
+    ggsave("Final Maps/cfsall_rentinc.png", height = 6, width = 12, units = "in", dpi = 500)
+
+#Non-native population and SNAP/CFS
+    map_snap(percent_variable = "pct_noncit", title ="Share of households who are non-US natives")
+    ggsave("Final Maps/snap_noncit.png", height = 6, width = 12, units = "in", dpi = 500)
+    
+    map_cfsall(percent_variable = "pct_noncit", title ="ShareShare of households who are non-US natives")
+    ggsave("Final Maps/cfsall_noncit.png", height = 6, width = 12, units = "in", dpi = 500)
