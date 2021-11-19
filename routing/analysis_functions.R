@@ -79,7 +79,7 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
                            ttc, 
                            by = c("GEOID" = "geoid_start")) %>%
     mutate({{ need_var }} := as.factor(.data[[need_var]]),
-           min_duration = ifelse(min_duration > 60, NA_real_, min_duration))
+           min_duration = ifelse(min_duration > 30, 30, min_duration))
            #line_thickness = case_when(.data[[need_var]] == 1 ~ 0.2,
            #                          T ~ 0.1))
   
@@ -91,7 +91,7 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
   
   time_to_closest <- ggplot() +
     geom_sf(data = ttc_shp, 
-            mapping = aes(fill = min_duration, color = .data[[need_var]])) +
+            mapping = aes(fill = min_duration, color = .data[[need_var]]), size = .6) +
     #add roads to map
     geom_sf(data = road,
             color="grey", fill="white", size=0.25, alpha =.5) +
@@ -99,7 +99,8 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
                          name = "Time (minutes)", 
                          limits = c(0, 30),
                          breaks=c(0, 10, 20, 30)) +
-    scale_color_manual(values = c(palette_urbn_main[["gray"]], palette_urbn_main[["yellow"]])) + 
+    scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
+                       guide = 'none') + 
     #guides(fill = guide_colourbar(barheight = 8)) +
     theme(legend.position = "right", 
         legend.box = "vertical", 
@@ -109,7 +110,7 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
   
     ggsave(plot = time_to_closest,
            filename = here("routing/images", 
-                           str_glue("time_to_closest_{opp_formatted}_{dur_type_formatted}.png")),
+                           str_glue("time_to_closest_{opp_formatted}_{dur_type_formatted}.pdf")),
            height = 6, width = 10, units = "in", dpi = 500, 
            device = cairo_pdf)
     
@@ -165,7 +166,8 @@ map_count_within_t <- function(count_within_t,
     geom_sf(data = road,
             color="grey", fill="white", size=0.25, alpha =.5) +
     scale_fill_gradientn(colours = urban_colors) +
-    scale_color_manual(values = c(palette_urbn_main[["gray"]], palette_urbn_main[["yellow"]])) +
+    scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]),
+                       guide = 'none') +
     labs(title = str_glue("Number of {opp} accessible within {time} minute\n via {dur_type}"), 
          fill = str_glue("Number {opp}")) +
     #guides(fill = guide_colourbar(barheight = 8)) +
@@ -177,7 +179,7 @@ map_count_within_t <- function(count_within_t,
     ggsave(
       plot = count_t,
       filename = here("routing/images", 
-                      paste0(opp_formatted, "_number_within_", time, dur_type_formatted, ".png")),
+                      paste0(opp_formatted, "_number_within_", time, dur_type_formatted, ".pdf")),
       height = 6, width = 10, units = "in", dpi = 500, 
       device = cairo_pdf)
   

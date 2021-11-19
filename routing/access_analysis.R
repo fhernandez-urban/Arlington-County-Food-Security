@@ -5,7 +5,20 @@ library(here)
 library(sf)
 library(tigris)
 library(urbnthemes)
+library(Cairo)
+library(patchwork)
+library(urbnmapr)
+library (tigris)
+library(censusapi)
+library(forcats)
+library(gridExtra)
+library(haven)
+library(scales)
+library(extrafont)
 source("routing/analysis_functions.R")
+set_urbn_defaults(style = "map")
+
+## clarify number of open, year-round, weekly food sites
 
 routes_transit <- read_csv(here("routing/data", "all_routes_transit_final.csv"),
                    col_types = c("geoid_start" = "character",
@@ -89,10 +102,12 @@ food_sites <- read_csv(here("Final food data/Food site data", "Food_retailers_TR
                              T ~ 0),
          is_charitable = case_when(location_type == "Charitable food-site" ~ 1,
                                    T ~ 0),
-         char_open_all = case_when(restrictions == "Open to all" ~ 1,
+         char_open_all = case_when((restrictions == "Open to all" & 
+                                      year_round == "Open year-round") ~ 1,
                                    T ~ 0),
          char_open_weekly = case_when((restrictions == "Open to all" & 
-                                         frequency_visit == "Weekly or more frequent") ~ 1,
+                                         frequency_visit == "Weekly or more frequent" &
+                                         year_round == "Open year-round") ~ 1,
                                       T ~ 0),
          char_child_all = case_when(restrictions == "Serving children only" ~ 1,
                                     T ~ 0),
@@ -107,6 +122,8 @@ food_sites <- read_csv(here("Final food data/Food site data", "Food_retailers_TR
   )
 
 va_tract <- tracts(state = "51")
+# get road shapefle
+road <- roads(state = "Virginia", county = "013")
 tract_food <- st_join(va_tract, food_sites, join = st_intersects)
 
 tract_food_count <- tract_food %>%
@@ -156,10 +173,6 @@ all_fi <- fi %>%
   # set at in the top quartile of tracts
   mutate(is_high_fi = ifelse(percent_food_insecure > .12, 1, 0),
          is_high_mfi = ifelse(percent_mfi > .12, 1, 0)) 
-
-# number of tracts in Arlington with high food insecurity
-sum(snap_transit_wkdy$is_high_fi, na.rm = TRUE)
-
 
 route_date <- c("2021-09-15", "2021-09-19")
 food_type <- c("is_snap", "is_charitable", "char_open_all", "char_open_weekly",
@@ -235,7 +248,8 @@ map_char_ttc <- map_time_to_closest(
   county_shp = acs,
   opp = "Open Charitable Food Location",
   need_var = "is_high_fi",
-  dur_type = "Weighted Travel Time")
+  dur_type = "Weighted Travel Time",
+  road = road)
 
 map_char_ttc_wkly <- map_time_to_closest(
   ttc = all_ttc %>% 
@@ -245,7 +259,8 @@ map_char_ttc_wkly <- map_time_to_closest(
   county_shp = acs,
   opp = "Weekly Open Charitable Food Location",
   need_var = "is_high_fi",
-  dur_type = "Weighted Travel Time")
+  dur_type = "Weighted Travel Time",
+  road = road)
 
 map_char_ttc_transit <- map_time_to_closest(
   ttc = all_ttc %>% 
@@ -255,7 +270,8 @@ map_char_ttc_transit <- map_time_to_closest(
   county_shp = acs,
   opp = "Open Charitable Food Location",
   need_var = "is_high_fi",
-  dur_type = "Transit")
+  dur_type = "Transit",
+  road = road)
 
 map_char_ttc_wkly_transit <- map_time_to_closest(
   ttc = all_ttc %>% 
@@ -265,7 +281,8 @@ map_char_ttc_wkly_transit <- map_time_to_closest(
   county_shp = acs,
   opp = "Weekly Open Charitable Food Location",
   need_var = "is_high_fi",
-  dur_type = "Transit")
+  dur_type = "Transit",
+  road = road)
 
 map_char_ttc_all_transit <- map_time_to_closest(
   ttc = all_ttc %>% 
@@ -275,7 +292,8 @@ map_char_ttc_all_transit <- map_time_to_closest(
   county_shp = acs,
   opp = "Charitable Food Location",
   need_var = "is_high_fi",
-  dur_type = "Transit")
+  dur_type = "Transit",
+  road = road)
 
 map_snap_ttc <- map_time_to_closest(
   ttc = all_ttc %>% 
@@ -285,7 +303,8 @@ map_snap_ttc <- map_time_to_closest(
   county_shp = acs,
   opp = "SNAP Retailer",
   need_var = "is_high_fi",
-  dur_type = "Transit")
+  dur_type = "Transit",
+  road = road)
 
 #map_snap_com <- map_time_to_closest(acs, snap_wkdy_com, "SNAP Retailer")
 
