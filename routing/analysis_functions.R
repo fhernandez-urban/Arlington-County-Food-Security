@@ -72,11 +72,8 @@ travel_time_to_closest <- function(all_data,
   return(time_to_closest)
 }
 
-map_time_to_closest <- function(county_shp, 
-                                ttc, 
-                                opp, 
-                                need_var,
-                                road){
+
+map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
 
   ttc_shp <- left_join(county_shp, 
                            ttc, 
@@ -87,6 +84,7 @@ map_time_to_closest <- function(county_shp,
            #                          T ~ 0.1))
   
   opp_formatted <- gsub("\ ", "_", tolower(opp))
+  dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
   
   set_urbn_defaults(style = "map")
   urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
@@ -111,10 +109,10 @@ map_time_to_closest <- function(county_shp,
   
     ggsave(plot = time_to_closest,
            filename = here("routing/images", 
-                str_glue("time_to_closest_{opp_formatted}.png")),
+                           str_glue("time_to_closest_{opp_formatted}_{dur_type_formatted}.png")),
            height = 6, width = 10, units = "in", dpi = 500, 
            device = cairo_pdf)
-  
+    
   return(time_to_closest)
 }
 
@@ -140,10 +138,12 @@ count_accessible_within_t <- function(all_data,
   return(count_within_t)
 }
 
+
 map_count_within_t <- function(count_within_t, 
                                county_shp, 
                                opp, 
                                need_var,
+                               dur_type,
                                road,
                                limits,
                                breaks){
@@ -157,6 +157,7 @@ map_count_within_t <- function(count_within_t,
   urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
   
   opp_formatted <- gsub("\ ", "_", tolower(opp))
+  dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
   
   count_t <- ggplot() +
     geom_sf(data = count_within_t, mapping = aes(fill = count, color = .data[[need_var]])) +
@@ -165,7 +166,7 @@ map_count_within_t <- function(count_within_t,
             color="grey", fill="white", size=0.25, alpha =.5) +
     scale_fill_gradientn(colours = urban_colors) +
     scale_color_manual(values = c(palette_urbn_main[["gray"]], palette_urbn_main[["yellow"]])) +
-    labs(title = str_glue("Number of {opp} accessible within {time} minutes"), 
+    labs(title = str_glue("Number of {opp} accessible within {time} minute\n via {dur_type}"), 
          fill = str_glue("Number {opp}")) +
     #guides(fill = guide_colourbar(barheight = 8)) +
     theme(legend.position = "right", 
@@ -176,7 +177,7 @@ map_count_within_t <- function(count_within_t,
     ggsave(
       plot = count_t,
       filename = here("routing/images", 
-                paste0(opp_formatted, "_number_within_", time, ".png")),
+                      paste0(opp_formatted, "_number_within_", time, dur_type_formatted, ".png")),
       height = 6, width = 10, units = "in", dpi = 500, 
       device = cairo_pdf)
   
