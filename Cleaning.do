@@ -6,7 +6,7 @@ Fernando Herandez
 
 clear all
 global data "\\Ares\CTX_RedirectedFolders$\FHernandez\Desktop\ArlCo Food Insecurity\Quantitative work\Data\"
-global save "\\Ares\CTX_RedirectedFolders$\FHernandez\Desktop\ArlCo Food Insecurity\Quantitative work\Data\Final food data\"
+global save "\\Ares\CTX_RedirectedFolders$\FHernandez\Desktop\ArlCo Food Insecurity\Quantitative work\Data\Final food data\Food site data\"
 
 
 *Charitable food sites data uploading
@@ -30,12 +30,12 @@ import excel "${data}Environmental Scan - Food Assistance in Arlington.xlsx", //
 	replace address = trim(address)
 		drop if address == ""
 
-	export delimited using "${save}Food site data\Charitable_food_sites_ArCo.csv", ///
+	export delimited using "${save}Charitable_food_sites_ArCo.csv", ///
 		replace quote
 	
 	*At this point we go to TAMU for geocoding - no good stata command to do in-house
 	clear all
-	import delimited "${save}Food site data\Charitable_food_sites_ArCo_geocoded.csv", bindquote(strict)
+	import delimited "${save}Charitable_food_sites_ArCo_geocoded.csv", bindquote(strict)
 	*dropping unnec vars
 	drop name email phone website registration_contact auto_unique_id source ///
 		timetaken updatedgeocod version error transaction ///
