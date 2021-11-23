@@ -80,8 +80,6 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
                            by = c("GEOID" = "geoid_start")) %>%
     mutate({{ need_var }} := as.factor(.data[[need_var]]),
            min_duration = ifelse(min_duration > 30, 30, min_duration))
-           #line_thickness = case_when(.data[[need_var]] == 1 ~ 0.2,
-           #                          T ~ 0.1))
   
   opp_formatted <- gsub("\ ", "_", tolower(opp))
   dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
