@@ -18,7 +18,6 @@ library(extrafont)
 source("routing/analysis_functions.R")
 set_urbn_defaults(style = "map")
 
-## clarify number of open, year-round, weekly food sites
 
 routes_transit <- read_csv(here("routing/data", "all_routes_transit_final.csv"),
                    col_types = c("geoid_start" = "character",
@@ -94,7 +93,9 @@ routes_acs <- routes_wide %>%
 
 food_sites <- read_csv(here("Final food data/Food site data", "Food_retailers_TRANSPORT.csv")) %>%
   #Exclude food sites that are available by appointment
-  filter(is.na(frequency_visit) | frequency_visit != "Other frequency") %>%
+  filter(is.na(frequency_visit) | frequency_visit != "Other frequency",
+         !zip_code %in% c(22306, 22044),
+         !location_address %in% c("3159 Row St.", "3305 Glen Carlyn Rd")) %>%
   filter(!is.na(latitude)) %>%
   st_as_sf(coords = c("longitude", "latitude")) %>%
   st_set_crs(4269) %>%
@@ -105,6 +106,15 @@ food_sites <- read_csv(here("Final food data/Food site data", "Food_retailers_TR
          char_open_all = case_when((restrictions == "Open to all" & 
                                       year_round == "Open year-round") ~ 1,
                                    T ~ 0),
+         char_open_flexible = case_when((restrictions == "Open to all" & 
+                                      year_round == "Open year-round" &
+                                        (weekends == "Yes"| open_afterhrs == "Open at or after 5:00 PM") ) ~ 1,
+                                   T ~ 0),
+         char_open_flexible_weekly = case_when((restrictions == "Open to all" & 
+                                           year_round == "Open year-round" &
+                                             frequency_visit == "Weekly or more frequent" &
+                                           (weekends == "Yes"| open_afterhrs == "Open at or after 5:00 PM") ) ~ 1,
+                                        T ~ 0),
          char_open_weekly = case_when((restrictions == "Open to all" & 
                                          frequency_visit == "Weekly or more frequent" &
                                          year_round == "Open year-round") ~ 1,
@@ -176,7 +186,8 @@ all_fi <- fi %>%
 
 route_date <- c("2021-09-15", "2021-09-19")
 food_type <- c("is_snap", "is_charitable", "char_open_all", "char_open_weekly",
-               "char_sen_all", "char_sen_weekly", "char_child_all", "char_child_weekly")
+               "char_sen_all", "char_sen_weekly", "char_child_all", "char_child_weekly",
+               "char_open_flexible", "char_open_flexible_weekly")
 dur_type <- c("wt_duration", "wt_duration_com", "TRANSIT")
 
 ttc_params <- expand_grid(
@@ -319,7 +330,8 @@ map_count_snap <- map_count_within_t(
   county_shp = acs,
   opp = "SNAP Retailers",
   need_var = "is_high_fi",
-  dur_type = "Weighted Travel Time")
+  dur_type = "Weighted Travel Time",
+  road = road)
 
 map_count_snap_transit <- map_count_within_t(
   count_within_t = all_cwt %>%
@@ -330,7 +342,8 @@ map_count_snap_transit <- map_count_within_t(
   county_shp = acs,
   opp = "SNAP Retailers",
   need_var = "is_high_fi",
-  dur_type = "Transit")
+  dur_type = "Transit",
+  road = road)
 
 
 map_count_char_open <- map_count_within_t(
@@ -342,7 +355,8 @@ map_count_char_open <- map_count_within_t(
   county_shp = acs,
   opp = "Open Charitable Food Locations",
   need_var = "is_high_fi",
-  dur_type = "Weighted Travel Time")
+  dur_type = "Weighted Travel Time",
+  road = road)
 
 map_count_char_open_transit <- map_count_within_t(
   count_within_t = all_cwt %>%
@@ -353,4 +367,5 @@ map_count_char_open_transit <- map_count_within_t(
   county_shp = acs,
   opp = "Open Charitable Food Locations",
   need_var = "is_high_fi",
-  dur_type = "Transit")
+  dur_type = "Transit",
+  road = road)
