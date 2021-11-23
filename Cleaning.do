@@ -95,7 +95,8 @@ import delimited "${data}SNAP_Store_Locations_NOVA.csv", clear
 drop if objectid == 33525 | objectid==103791 | objectid==221002 | ///
 	objectid==184948 | objectid==151312 | objectid==117198 | objectid==154843 | ///
 	objectid==234775 | objectid==90277 | objectid==7066 | objectid==34684 | objectid==49446
-	
+
+replace times = "9AM-12PM Jan-Mar and 8:30-12:30 Apr-Dec" if regexm(time, "(Apr - Dec)")
 gen store_type = ""
 replace store_type = "Supermarket/Grocery Store" if regexm(location_name, "Supermarket")	///
 	| regexm(location_name, "Giant")	///
