@@ -299,6 +299,9 @@ drop if location_name=="Good Company Doughnuts & CafÃÂ©" | ///
 drop if regexm(location_name, "Randolph ")
 
 *TIMING
+**Fixing frequency
+replace frequency = "NA" if frequency=="" & & location_type=="Charitable food-site"
+
 **Frequency with which one can visit the site
 gen frequency_visit = .
 	replace frequency_visit = 1 if regexm(frequency, "3 times weekly") | ///
@@ -311,12 +314,11 @@ gen frequency_visit = .
 	replace frequency_visit = 3 if (regexm(frequency, "By Appointment") & ///
 		regexm(location_name, "Lomax ")) | ///
 		(regexm(frequency, "By Appointment") & regexm(location_name, "Randolph ")) ///
-		| regexm(frequency, "Upon") | ///
-		regexm(frequency, "NA")
+		| regexm(frequency, "Upon") 
 	replace frequency_visit = .a if location_name== "Central Library"
-	replace frequency_visit = .b if frequency_visit == .
+	replace frequency_visit = .b if regexm(frequency, "NA")
 		label define frequency_visit 1 "Weekly or more frequent" ///
-			2 "Less than weekly, but monthly or more" 3 "Other frequency" ///
+			2 "Less than weekly" 3 "Other frequency" ///
 			.a "Unknown frequency" .b "NIS"
 			label val frequency_visit frequency_visit 
 
@@ -355,25 +357,6 @@ gen open_afterhrs= .
 		label define open_afterhrs 1 "Open at or after 5:00 PM" ///
 			2 "Open typical business hours" 3 "By appointment" .a "UNK" .b "NIS"
 		label val open_afterhrs open_afterhrs 
-		
-**Summing up frequency into one variable
-gen freq_chars = .
-	replace freq_chars =  1 if frequency_visit == 1 & weekends==1 & ///
-		year_round == 1
-	replace freq_chars = 2 if frequency_visit == 1 & weekend==0 & ///
-		open_afterhrs==1 & year_round == 1
-	replace freq_chars = 3 if frequency_visit == 1 & weekend==0 & ///
-		open_afterhrs!=1 & year_round == 1
-	replace freq_chars = 4 if frequency_visit==2 | open_after==3
-	replace freq_chars = 5 if year_round==0 & regexm(location_type,"Charitable")
-	replace freq_chars = .a if frequency_visit==.a
-	replace freq_chars = .b if location_type!="Charitable food-site"
-		label define freq_chars 1 "Weekly or more, weekends, and year-round" ///
-			2 "Weekly or more, weekdays only, after-hours, year-round" ///
-			3 "Weekly or more, weekdays only, after-hours, year-round"  ///
-			4 "Less than weekly, by appointment, year-round" ///
-			5 "Open seasonally" .a "UNK" .b "NIS"
-		label val freq_chars freq_chars 
 
 *RESTRICTIONS TO ACCESS
 **Eligibility requirements fixed
@@ -473,5 +456,26 @@ gen loctype_fresh = .
 		5 "SNAP-retailer with fresh produce"	///
 		6 "Non-SNAP-retailer with fresh produce"	
 		label val loctype_fresh loctype_fresh 
-		
+
+**Summing up frequency into one variable
+gen freq_chars = .
+	replace freq_chars =  1 if frequency_visit == 1 & weekends==1 & ///
+		year_round == 1 & open_afterhrs==1
+	replace freq_chars = 2 if frequency_visit == 1 & weekend==0 & ///
+		year_round == 1 & open_afterhrs==0
+	replace freq_chars = 3 if frequency_visit == 1 & weekend==0 & ///
+		open_afterhrs==1 & year_round == 1
+	replace freq_chars = 4 if frequency_visit == 1 & weekend==0 & ///
+		open_afterhrs==0 & year_round == 1
+	replace freq_chars = 5 if frequency_visit==2 | open_after==3
+	replace freq_chars = 6 if year_round==0 & regexm(location_type,"Charitable")
+	replace freq_chars = .a if frequency_visit==.a
+	replace freq_chars = .b if location_type!="Charitable food-site"
+		label define freq_chars 1 "Weekly or more, weekends, after-hours, and open year-round" ///
+			2 "Weekly or more, weekends, regular hours, and open year-round" ///
+			3 "Weekly or more, weekdays only, after-hours, open year-round"  ///
+			4 "Weekly or more, weekdays only, regular hours, open year-round"  ///
+			5 "Less than weekly or by appointment, and open year-round" ///
+			6 "Open seasonally" .a "UNK" .b "NIS"
+		label val freq_chars freq_chars 
 		*/
