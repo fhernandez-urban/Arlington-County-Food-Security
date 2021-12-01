@@ -31,6 +31,7 @@ library(GISTools)
 set_urbn_defaults(style = "map")
 #urbnthemes :: lato_import()
 #urbnthemes :: lato_test()
+
 #extrafont::font_import(paths =c("C:/Users/Arogin/Downloads/Lato"), pattern = "Lato-Regular", prompt = FALSE)
 
 ## Uses tidycensus::get_acs function to query API and obtain ACS estimates
@@ -118,7 +119,6 @@ acs_ficombo <- acs_ficombo %>%
 snap_fs <- read_csv("Final food data/Food site data/Food_retailers_MAPPING.csv") 
 #snap_fs<-snap_fs[!(snap_fs$zip_code==22306 | snap_fs$zip_code==22044),]
 
-
 ##Non-SNAP retailers
 non_snap <-read.csv("non_snap-geocoded.csv") %>% 
   filter(!zip %in% c(22302, 22041, 22044, 22305)) %>% 
@@ -129,6 +129,7 @@ non_snap <-read.csv("non_snap-geocoded.csv") %>%
          latitude = Latitude) %>% 
   mutate(location_type = "Non-SNAP retailer") %>% 
   relocate(location_type, .before = type)
+
 
 # snap <- rbind(snap_fs, non_snap) %>% 
 #   st_as_sf(coords = c("longitude", "latitude"),
@@ -147,9 +148,6 @@ fsite_all <- snap_fs %>%
 
 # Just snap food sites
 fsite_snap <- snap_fs %>%
-  st_as_sf(coords = c("longitude", "latitude"),
-           crs = 4269) %>% 
-  st_transform(crs = 6487)%>% 
   filter(!location_type %in% c("Charitable food-site"), 
          !zip_code %in% c(22306,22044), 
          !location_address %in% c("3159 Row St.","3305 Glen Carlyn Rd"))
@@ -186,6 +184,15 @@ cf_tracts <- acs_ficombo %>%
   mutate(counts = lengths(st_intersects(., char_frequent))) %>% 
   dplyr::select(NAME, counts)
 
+# Just charitable food sites
+fs_cfsall <- fsite_all %>%
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4269) %>% 
+  st_transform(crs = 6487) %>% 
+  filter(!objectid %in% c("75", "48"))%>% 
+  filter(!location_type %in% c("SNAP-retailer"))
+  
+
 
 #MISC
 urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
@@ -202,6 +209,7 @@ two_color2 <- c("#55b748", "#fdbf11")
 road <- roads(state = "Virginia", county = "013")
 
 #Arlington county
+
 ggplot() +
   geom_sf(acs_ficombo, mapping = aes(fill = FI, color = is_high_fi), size = 0.9) +
   geom_sf(data = road,
@@ -238,6 +246,7 @@ ggplot() +
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16))
+
 # ggsave("Final Maps/snap_retailers.pdf", height = 6, width = 10, units = "in", dpi = 500, 
 #        device = cairo_pdf)
 
@@ -262,6 +271,7 @@ ggplot() +
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16)) #change legend text font size)
+
 # ggsave("Final Maps/fsites_cfs_fullaccess.pdf", height = 6, width = 10, units = "in", dpi = 300,
 #        device = cairo_pdf)
 
@@ -280,11 +290,9 @@ ggplot() +
   scale_color_manual(values = "#fdbf11", 
                      labels = "Charitable food sites",
                      name = NULL)+
-  theme(legend.position = "right", 
-        legend.box = "vertical", 
-        legend.key.size = unit(1, "cm"), 
-        legend.title = element_text(size=16), #change legend title font size
-        legend.text = element_text(size=16)) #change legend text font size)  
+ggsave("Final Maps/fsites_cfs_fullaccess.pdf", height = 6, width = 10, units = "in", dpi = 300,
+       device = cairo_pdf)
+
 # ggsave("Final Maps/cfs_flexibleaccess.pdf", height = 6, width = 10, units = "in", dpi = 500, 
 #        device = cairo_pdf)
 
