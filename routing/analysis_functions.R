@@ -165,7 +165,7 @@ map_count_within_t <- function(count_within_t,
     #add roads to map
     geom_sf(data = road,
             color="grey", fill="white", size=0.25, alpha =.5) +
-    scale_fill_gradientn(colours = urban_colors,
+    scale_fill_gradientn(colours = rev(urban_colors),
                          name = str_glue("Number {opp}"),
                          limits = c(0, 30),
                          breaks=c(0, 10, 20, 30)) +
