@@ -149,7 +149,8 @@ map_count_within_t <- function(count_within_t,
   count_within_t <- left_join(county_shp, 
                                 count_within_t, 
                                 by = c("GEOID" = "geoid_start")) %>%
-    mutate({{ need_var }} := as.factor(.data[[need_var]]))
+    mutate({{ need_var }} := as.factor(.data[[need_var]]),
+           count = ifelse(GEOID %in% c("51013980200", "51013980100"), NA_real_, count))
   
   time <- count_within_t %>% pull(time) %>% unique()
   set_urbn_defaults(style = "map")
@@ -159,15 +160,19 @@ map_count_within_t <- function(count_within_t,
   dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
   
   count_t <- ggplot() +
-    geom_sf(data = count_within_t, mapping = aes(fill = count, color = .data[[need_var]])) +
+    geom_sf(data = count_within_t, mapping = aes(fill = count, color = .data[[need_var]]),
+            size = .6) +
     #add roads to map
     geom_sf(data = road,
             color="grey", fill="white", size=0.25, alpha =.5) +
-    scale_fill_gradientn(colours = urban_colors) +
+    scale_fill_gradientn(colours = urban_colors,
+                         name = str_glue("Number {opp}"),
+                         limits = c(0, 30),
+                         breaks=c(0, 10, 20, 30)) +
     scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]),
                        guide = 'none') +
-    labs(title = str_glue("Number of {opp} accessible within {time} minute\n via {dur_type}"), 
-         fill = str_glue("Number {opp}")) +
+    #labs(title = str_glue("Number of {opp} accessible within {time} minute\n via {dur_type}"), 
+    #     fill = str_glue("Number {opp}")) +
     #guides(fill = guide_colourbar(barheight = 8)) +
     theme(legend.position = "right", 
           legend.box = "vertical", 
