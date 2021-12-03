@@ -411,7 +411,10 @@ gen access = .
 		label define access 1 "Open to all" 2 "Open to children/elders only" ///
 			3 "Requires having SNAP" 4 "Another restriction"
 		label val access access
-*replace county = "ARLINGTON" if location_type == "Non-SNAP-retailer"
+
+	*Dropping the 2 sites not in arlington according to their geocode information and address
+	drop if regexm(location_address, "3159 Row St") | ///
+		regexm(location_address, "3305 Glen Carlyn Rd")
 	
 save "${save}food_stores_data_TRANSPORT.dta", replace
 export delimited using "${save}Food_retailers_TRANSPORT.csv", replace
@@ -436,47 +439,29 @@ export delimited using "${save}Food_retailers_TRANSPORT.csv", replace
 		export delimited using "${save}Food_retailers_cfs_elder.csv", replace
 	restore
 	
-	
-	
-	
-/* GARBAGE BIN
+clear all	
+*Quick analysis of data
+use  "${save}food_stores_data_MAPPING.dta", clear // ARLINGTON ONLY
 
-*Typologies
+tab location_type, // 92 sites, 51 CFSs, 41 SNAP retailers
 
-gen loctype_fresh = .
-	replace loctype_fresh = 1 if fresh_produce==0 & location_type == "Charitable food-site"
-	replace loctype_fresh = 2 if fresh_produce==0 & location_type == "SNAP-retailer"
-	replace loctype_fresh = 3 if fresh_produce==0 & location_type == "Non-SNAP-retailer"
-	replace loctype_fresh = 4 if fresh_produce==1 & location_type == "Charitable food-site"
-	replace loctype_fresh = 5 if fresh_produce==1 & location_type == "SNAP-retailer"
-	replace loctype_fresh = 6 if fresh_produce==1 & location_type == "Non-SNAP-retailer"
-		label define loctype_fresh 1 "Charitable food-site without fresh produce" ///
-		2 "SNAP-retailer without fresh produce" ///
-		3 "Non-SNAP-retailer without fresh produce" ///
-		4 "Charitable food-site with fresh produce" ///
-		5 "SNAP-retailer with fresh produce"	///
-		6 "Non-SNAP-retailer with fresh produce"	
-		label val loctype_fresh loctype_fresh 
+tab year_round if regexm(location_type, "Charitable") 
+	*48 (.9411) open year round, 3 (.0588) otherwise, total 51
 
-**Summing up frequency into one variable
-gen freq_chars = .
-	replace freq_chars =  1 if frequency_visit == 1 & weekends==1 & ///
-		year_round == 1 & open_afterhrs==1
-	replace freq_chars = 2 if frequency_visit == 1 & weekend==0 & ///
-		year_round == 1 & open_afterhrs==0
-	replace freq_chars = 3 if frequency_visit == 1 & weekend==0 & ///
-		open_afterhrs==1 & year_round == 1
-	replace freq_chars = 4 if frequency_visit == 1 & weekend==0 & ///
-		open_afterhrs==0 & year_round == 1
-	replace freq_chars = 5 if frequency_visit==2 | open_after==3
-	replace freq_chars = 6 if year_round==0 & regexm(location_type,"Charitable")
-	replace freq_chars = .a if frequency_visit==.a
-	replace freq_chars = .b if location_type!="Charitable food-site"
-		label define freq_chars 1 "Weekly or more, weekends, after-hours, and open year-round" ///
-			2 "Weekly or more, weekends, regular hours, and open year-round" ///
-			3 "Weekly or more, weekdays only, after-hours, open year-round"  ///
-			4 "Weekly or more, weekdays only, regular hours, open year-round"  ///
-			5 "Less than weekly or by appointment, and open year-round" ///
-			6 "Open seasonally" .a "UNK" .b "NIS"
-		label val freq_chars freq_chars 
-		*/
+tab access if year_round ==1 & ///
+	regexm(location_type, "Charitable") 
+	/*21 (.4375) open year round open to all, 27 (.5625) open year round but 
+	with some access restriction, total 48 */
+
+tab frequency_visit if access==1 & year_round ==1 & ///
+	regexm(location_type, "Charitable") 
+	/*10 (.50) open year round open to all available weekly, 
+	10 (.50) open year round open to all but are available less than weekly, 
+	total 20 */
+
+tab open_after if frequency_visit ==1 & access==1 & year_round ==1 & ///
+	regexm(location_type, "Charitable") 
+	/*4 (.40) open year round open to all open available weekly on weekends 
+	and/or nights, 6 (.60) open year round open to all available weekly but 
+	open M/F and/or 8am-5pm, total 10 */
+	
