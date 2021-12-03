@@ -1,7 +1,7 @@
 /*
 Food retailers data cleaning
 Fernando Herandez
-9/27/2021
+12/03/2021
 */
 
 clear all
@@ -415,11 +415,12 @@ gen access = .
 	*Dropping the 2 sites not in arlington according to their geocode information and address
 	drop if regexm(location_address, "3159 Row St") | ///
 		regexm(location_address, "3305 Glen Carlyn Rd")
-	
+		
 save "${save}food_stores_data_TRANSPORT.dta", replace
 export delimited using "${save}Food_retailers_TRANSPORT.csv", replace
 
 	keep if county == "ARLINGTON"
+
 	
 	save "${save}food_stores_data_MAPPING.dta", replace
 		export delimited using "${save}Food_retailers_MAPPING.csv", replace
@@ -439,28 +440,28 @@ export delimited using "${save}Food_retailers_TRANSPORT.csv", replace
 		export delimited using "${save}Food_retailers_cfs_elder.csv", replace
 	restore
 	
-clear all	
+clear all
 *Quick analysis of data
 use  "${save}food_stores_data_MAPPING.dta", clear // ARLINGTON ONLY
 
 tab location_type, // 92 sites, 51 CFSs, 41 SNAP retailers
 
-tab year_round if regexm(location_type, "Charitable") 
+tab year_round if regexm(location_type, "Charitable") ,m
 	*48 (.9411) open year round, 3 (.0588) otherwise, total 51
 
 tab access if year_round ==1 & ///
-	regexm(location_type, "Charitable") 
+	regexm(location_type, "Charitable") ,m
 	/*21 (.4375) open year round open to all, 27 (.5625) open year round but 
 	with some access restriction, total 48 */
 
 tab frequency_visit if access==1 & year_round ==1 & ///
-	regexm(location_type, "Charitable") 
+	regexm(location_type, "Charitable") ,m
 	/*10 (.50) open year round open to all available weekly, 
 	10 (.50) open year round open to all but are available less than weekly, 
 	total 20 */
 
 tab open_after if frequency_visit ==1 & access==1 & year_round ==1 & ///
-	regexm(location_type, "Charitable") 
+	regexm(location_type, "Charitable") ,m
 	/*4 (.40) open year round open to all open available weekly on weekends 
 	and/or nights, 6 (.60) open year round open to all available weekly but 
 	open M/F and/or 8am-5pm, total 10 */
