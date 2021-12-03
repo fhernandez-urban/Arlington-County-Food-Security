@@ -189,7 +189,49 @@ map_count_within_t <- function(count_within_t,
   return(count_t)
 }  
   
-
+map_access_within_t <- function(ttc, 
+                               county_shp, 
+                               opp, 
+                               need_var,
+                               dur_type,
+                               road,
+                               t_limit){
+  ttc <- left_join(county_shp,
+                   ttc, 
+                   by = c("GEOID" = "geoid_start")) %>%
+    mutate({{ need_var }} := as.factor(.data[[need_var]]),
+           access_in_limit = factor(ifelse(min_duration <= t_limit, 1, 0)))
+  
+  set_urbn_defaults(style = "map")
+  
+  opp_formatted <- gsub("\ ", "_", tolower(opp))
+  dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
+  
+  access_in_t <- ggplot() +
+    geom_sf(data = ttc, mapping = aes(fill = access_in_limit, color = .data[[need_var]]),
+            size = .6) +
+    #add roads to map
+    geom_sf(data = road,
+            color="white", fill="white", size=0.25, alpha =.5) +
+    scale_fill_manual(values = c("grey", palette_urbn_main[["yellow"]]),
+                         name = str_glue("Access to any location\n within {t_limit} minutes")
+                         ) +
+    scale_color_manual(values = c("white", palette_urbn_main[["magenta"]]),
+                       guide = 'none') +
+    theme(legend.position = "right", 
+          legend.box = "vertical", 
+          legend.key.size = unit(1, "cm"), 
+          legend.title = element_text(size=16), #change legend title font size
+          legend.text = element_text(size=16))
+  ggsave(
+    plot = access_in_t,
+    filename = here("routing/images", 
+                    str_glue("access_to_{opp_formatted}_in_{t_limit}_{dur_type_formatted}.pdf")),
+    height = 6, width = 10, units = "in", dpi = 500, 
+    device = cairo_pdf)
+  
+  return(access_in_t)
+}  
 
 make_bar_plot_race <- function(acs_data, all_data, city) {
   

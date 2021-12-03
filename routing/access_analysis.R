@@ -369,3 +369,41 @@ map_count_char_open_transit <- map_count_within_t(
   need_var = "is_high_fi",
   dur_type = "Transit",
   road = road)
+
+map_access_in_t_char_open_transit  <- map_access_within_t(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_all",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Open Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road,
+  t_limit = 20)
+
+map_access_in_t_char_open_transit  <- map_access_within_t(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_weekly",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Open Weekly Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road,
+  t_limit = 20)
+
+map_access_in_t_char_open_transit  <- map_access_within_t(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_flexible_weekly",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Flexible Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road,
+  t_limit = 20)
+
+
