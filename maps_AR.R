@@ -50,7 +50,7 @@ acs = get_acs(state = "51", county = "013", geography = "tract",
                             "B05001_001", "B05001_005", "B05001_006"),
               geometry = T)
 
-wide_acs <- acs %>% select(-moe) %>% 
+wide_acs <- acs %>% dplyr::select(-moe) %>% 
   spread(variable, estimate) %>%
   rename(total_pop = B03002_001,
          nonlatine = B03002_002,
@@ -104,7 +104,7 @@ arco_tracts <- subset(arco_tracts, COUNTYFP == "013")
 combined_FI_MFI <- read_excel("Raw FI/Combined FI-MFI.xlsx")%>%
   mutate(tract = str_replace(str_extract(geography, "\\d+\\.?\\d+"), "\\.", ""),
          GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0")) %>%
-  select(-tract)
+  dplyr::select(-tract)
 
 ##Merging on ACS and FI/MFI data
 acs_ficombo <- wide_acs %>% left_join(combined_FI_MFI, by = "GEOID") %>% 
@@ -116,8 +116,7 @@ acs_ficombo <- acs_ficombo %>%
 
 #Retailer data
 ##SNAP Retailers
-snap_fs <- read_csv("Final food data/Food site data/Food_retailers_MAPPING.csv") 
-#snap_fs<-snap_fs[!(snap_fs$zip_code==22306 | snap_fs$zip_code==22044),]
+snap_fs <- read_csv("Final food data/Food_retailers_MAPPING.csv") 
 
 ##Non-SNAP retailers
 non_snap <-read.csv("non_snap-geocoded.csv") %>% 
@@ -148,6 +147,9 @@ fsite_all <- snap_fs %>%
 
 # Just snap food sites
 fsite_snap <- snap_fs %>%
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4269) %>% 
+  st_transform(crs = 6487) %>% 
   filter(!location_type %in% c("Charitable food-site"), 
          !zip_code %in% c(22306,22044), 
          !location_address %in% c("3159 Row St.","3305 Glen Carlyn Rd"))
@@ -159,14 +161,18 @@ fs_cfsall <- fsite_all %>%
 
 char_fullaccess <- fs_cfsall %>%
   mutate(accessible = as.factor(case_when((year_round == "Open year-round" &
-         restrictions == "Open to all") ~ "Open all year without restrictions", TRUE ~ "Restrictions")))
+         restrictions == "Open to all") ~ "Open all year without restrictions", 
+         TRUE ~ "Restrictions"))) 
 
 char_frequent <- char_fullaccess %>% 
   filter(frequency_visit == "Weekly or more frequent", 
          accessible == "Open all year without restrictions")
 
-char_flexible <- char_frequent %>% 
-  filter(weekends == "Yes"| open_afterhrs == "Open at or after 5:00 PM")
+char_flexible <- char_fullaccess %>% 
+  mutate(most_access = as.factor(case_when((frequency_visit == "Weekly or more frequent" &
+         accessible == "Open all year without restrictions" &
+         (weekends == "Yes"| open_afterhrs == "Open at or after 5:00 PM")) ~ "Most accessible", 
+         TRUE ~ "Some limitation")))
 
 
 # SNAP Sites by Census Tract ----------------------------------------------
@@ -183,16 +189,6 @@ access <- char_fullaccess %>%
 cf_tracts <- acs_ficombo %>% 
   mutate(counts = lengths(st_intersects(., char_frequent))) %>% 
   dplyr::select(NAME, counts)
-
-# Just charitable food sites
-fs_cfsall <- fsite_all %>%
-  st_as_sf(coords = c("longitude", "latitude"),
-           crs = 4269) %>% 
-  st_transform(crs = 6487) %>% 
-  filter(!objectid %in% c("75", "48"))%>% 
-  filter(!location_type %in% c("SNAP-retailer"))
-  
-
 
 #MISC
 urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
@@ -223,8 +219,8 @@ ggplot() +
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16))
-# ggsave("Final Maps/arco_fi.pdf", height = 6, width = 10, units = "in", dpi = 500, 
-#        device = cairo_pdf)
+ ggsave("Final Maps/arco_fi.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+        device = cairo_pdf)
 
 # SNAP Retailers
 ggplot() +
@@ -240,15 +236,15 @@ ggplot() +
           show.legend = "point", inherit.aes = F) +
   scale_color_manual(values = "#fdbf11", 
                      name = NULL,
-                     labels = "SNAP retailers")+
+                     labels = "SNAP Retailers")+
   theme(legend.position = "right", 
         legend.box = "vertical", 
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16))
 
-# ggsave("Final Maps/snap_retailers.pdf", height = 6, width = 10, units = "in", dpi = 500, 
-#        device = cairo_pdf)
+ ggsave("Final Maps/snap_retailers.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+        device = cairo_pdf)
 
 
 #CFS OPEN YR AND NO ELIGIBILITY REQ
@@ -304,20 +300,21 @@ ggplot() +
                        limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5)+
-  scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]], "#fdbf11"), 
+  scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                      guide = 'none') +
   new_scale_color()+
-  geom_sf(data = char_flexible,mapping = aes(color = location_type),size = 2.5, 
+  geom_sf(data = char_flexible,mapping = aes(color = most_access),size = 2.5, 
           show.legend = "point", inherit.aes = F) +
-  scale_color_manual(labels = "Chartiable food sites", values = "#fdbf11", 
+  scale_color_manual(labels = c("Open all year, no eligibility requirements, \navailable weekly, and during non-traditional hours", "Other charitable food sites"), 
+                     values = c("#fdbf11", "#ec008b"), 
                      name = NULL)+
   theme(legend.position = "right", 
         legend.box = "vertical", 
         legend.key.size = unit(1, "cm"), 
-        legend.title = element_text(size=16), #change legend title font size
-        legend.text = element_text(size=16)) #change legend text font size)  
-# ggsave("Final Maps/cfs_flexibleaccess.pdf", height = 6, width = 10, units = "in", dpi = 500, 
-#        device = cairo_pdf)
+        legend.title = element_text(size=14), #change legend title font size
+        legend.text = element_text(size=14))  
+ggsave("Final Maps/cfs_access.pdf", height = 6, width = 10, units = "in", dpi = 500,
+       device = cairo_pdf)
 
 # OLD MAPS ----------------------------------------------------------------
 
