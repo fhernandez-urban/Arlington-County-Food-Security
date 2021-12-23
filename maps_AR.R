@@ -390,13 +390,13 @@ ggplot() +
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16)) #change legend text font size)  
-# ggsave("Final Maps/cfs_flexibleaccess.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+# ggsave("Final Maps/cfs_childrenu18.pdf", height = 6, width = 10, units = "in", dpi = 500, 
 #        device = cairo_pdf)
 
 
 #FH: SHARE OF SENIORS 65+ Y/O AND CFS THAT SERVE SENIORS
 ggplot() +
-  geom_sf(acs_ficombo,mapping = aes(fill = FI, color = is_high_fi), size = 0.6) +
+  geom_sf(acs_ficombo,mapping = aes(fill = pct_povseniors, color = is_high_fi), size = 0.6) +
   scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
                        limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
   geom_sf(data = road,
@@ -413,7 +413,7 @@ ggplot() +
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16)) #change legend text font size)  
-# ggsave("Final Maps/cfs_flexibleaccess.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+# ggsave("Final Maps/cfs_seniors.pdf", height = 6, width = 10, units = "in", dpi = 500, 
 #        device = cairo_pdf)
 
 
