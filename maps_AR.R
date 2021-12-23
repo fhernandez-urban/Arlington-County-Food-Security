@@ -47,7 +47,20 @@ acs = get_acs(state = "51", county = "013", geography = "tract",
                             "C17002_005", "C17002_006", "B25064_001", 
                             "B25070_001", "B25070_008", "B25070_009", 
                             "B25070_010", "B28002_001", "B28002_002",
-                            "B05001_001", "B05001_005", "B05001_006"),
+                            "B05001_001", "B05001_005", "B05001_006",
+                            "B01001_001", "B01001_003", "B01001_004",
+                            "B01001_005", "B01001_006", "B01001_020",
+                            "B01001_021", "B01001_022", "B01001_023",
+                            "B01001_024", "B01001_025", "B01001_027", 
+                            "B01001_028", "B01001_029", "B01001_030",
+                            "B01001_044", "B01001_045", "B01001_046",
+                            "B01001_047", "B01001_048", "B01001_049",
+                            "B17001_004", "B17001_004", "B17001_005",
+                            "B17001_006", "B17001_007", "B17001_008", 
+                            "B17001_009", "B17001_015", "B17001_016", 
+                            "B17001_018", "B17001_019", "B17001_020", 
+                            "B17001_021", "B17001_022", "B17001_023", 
+                            "B17001_029", "B17001_030"),
               geometry = T)
 
 wide_acs <- acs %>% select(-moe) %>% 
@@ -78,7 +91,45 @@ wide_acs <- acs %>% select(-moe) %>%
          hh_inet = B28002_002,
          tpop_nat = B05001_001,
          nat_nat = B05001_005,
-         nat_noncit = B05001_006) %>%
+         nat_noncit = B05001_006,
+         tp_age = B01001_001, 
+         child1 = B01001_003, 
+         child2 = B01001_004,
+         child3 = B01001_005,
+         child4 = B01001_006,
+         senior1 = B01001_020,
+         senior2 = B01001_021, 
+         senior3 = B01001_022, 
+         senior4 = B01001_023,
+         senior5 = B01001_024,
+         senior6 = B01001_025,
+         child5 = B01001_027,
+         child6 = B01001_028,
+         child7 = B01001_029,
+         child8 = B01001_030,
+         senior7 = B01001_044,
+         senior8 = B01001_045,
+         senior9 = B01001_046,
+         senior10 = B01001_047,
+         senior11 = B01001_048,
+         senior12 = B01001_049,
+         povchild1 = B17001_004,
+         povchild2 = B17001_004,
+         povchild3 = B17001_005,
+         povchild4 = B17001_006,
+         povchild5 = B17001_007,
+         povchild6 = B17001_008,
+         povchild10 = B17001_009,
+         povsenior1 = B17001_015,
+         povsenior2 = B17001_016,
+         povchild11 = B17001_018,
+         povchild12 = B17001_019,
+         povchild13 = B17001_020,
+         povchild14 = B17001_021,
+         povchild15 = B17001_022,
+         povchild16 = B17001_023,
+         povsenior3 = B17001_029,
+         povsenior4 = B17001_030) %>%
   mutate(pct_nlblack = nlblack / total_pop,
          pct_nlwhite = nlwhite / total_pop,
          pct_nlasian = nlasian / total_pop,
@@ -91,9 +142,10 @@ wide_acs <- acs %>% select(-moe) %>%
          pct_inetaccess = hh_inet/total_ipop,
          comcolor <- ifelse(pct_nlwhite <0.40, 1, 0),
          pct_nonnat = (nat_nat + nat_noncit)/tpop_nat,
-         pct_noncit = (nat_noncit)/tpop_nat)
+         pct_noncit = (nat_noncit)/tpop_nat,
+         pct_povchildu18 = (povchild1+povchild2+povchild3+povchild4+povchild5+povchild6+povchild7+povchild8+povchild9+povchild10+povchild11+povchild12+povchild13+povchild14+povchild15+povchild16)/(child1+child2+child3+child4+child5+child6+child7+child8),
+         pct_povseniors = (povsenior1+povsenior2+povsenior3+povsenior4)/(senior1+senior2+senior3+senior4+senior5+senior6+senior7+senior8+senior9+senior10+senior11+senior12))
 
-#write.csv(wide_acs, "wide_acs.csv", row.names = F)
 
 arco_tracts <- tigris::tracts(state = "VA",
                               cb = TRUE,
@@ -318,6 +370,52 @@ ggplot() +
         legend.text = element_text(size=16)) #change legend text font size)  
 # ggsave("Final Maps/cfs_flexibleaccess.pdf", height = 6, width = 10, units = "in", dpi = 500, 
 #        device = cairo_pdf)
+
+#FH: SHARE OF CHILDREN UNDER 18 Y/O AND CFS THAT SERVE CHILDREN
+ggplot() +
+  geom_sf(acs_ficombo,mapping = aes(fill = pct_childu18, color = is_high_fi), size = 0.6) +
+  scale_fill_gradientn(colours = urban_colors, name = "Children under 18 y/o", labels = percent, 
+                       limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5)+
+  scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]], "#fdbf11"), 
+                     guide = 'none') +
+  new_scale_color()+
+  geom_sf(data = char_flexible,mapping = aes(color = location_type),size = 2.5, 
+          show.legend = "point", inherit.aes = F) +
+  scale_color_manual(labels = "Chartiable food sites", values = "#fdbf11", 
+                     name = NULL)+
+  theme(legend.position = "right", 
+        legend.box = "vertical", 
+        legend.key.size = unit(1, "cm"), 
+        legend.title = element_text(size=16), #change legend title font size
+        legend.text = element_text(size=16)) #change legend text font size)  
+# ggsave("Final Maps/cfs_flexibleaccess.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+#        device = cairo_pdf)
+
+
+#FH: SHARE OF SENIORS 65+ Y/O AND CFS THAT SERVE SENIORS
+ggplot() +
+  geom_sf(acs_ficombo,mapping = aes(fill = FI, color = is_high_fi), size = 0.6) +
+  scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
+                       limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5)+
+  scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]], "#fdbf11"), 
+                     guide = 'none') +
+  new_scale_color()+
+  geom_sf(data = char_flexible,mapping = aes(color = location_type),size = 2.5, 
+          show.legend = "point", inherit.aes = F) +
+  scale_color_manual(labels = "Chartiable food sites", values = "#fdbf11", 
+                     name = NULL)+
+  theme(legend.position = "right", 
+        legend.box = "vertical", 
+        legend.key.size = unit(1, "cm"), 
+        legend.title = element_text(size=16), #change legend title font size
+        legend.text = element_text(size=16)) #change legend text font size)  
+# ggsave("Final Maps/cfs_flexibleaccess.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+#        device = cairo_pdf)
+
 
 # OLD MAPS ----------------------------------------------------------------
 
