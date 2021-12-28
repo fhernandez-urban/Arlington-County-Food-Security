@@ -14,7 +14,11 @@ read_process_acs <- function() {
                               "B01001_025", "B01001_027", "B01001_028",
                               "B01001_029", "B01001_030", "B01001_044",
                               "B01001_045", "B01001_046", "B01001_047",
-                              "B01001_048", "B01001_049"),
+                              "B01001_048", "B01001_049", "S1701_C02_013",
+                              "S1701_C02_014", "S1701_C02_015", "S1701_C02_016",
+                              "S1701_C02_017", "S1701_C02_018", "S1701_C02_019",
+                              "S1701_C02_020", "S1701_C02_002", "S1701_C02_010",
+                              "DP05_0019", "DP05_0024"),
                 geometry = TRUE)
   
   wide_acs <- acs %>% select(-moe) %>% 
@@ -33,7 +37,19 @@ read_process_acs <- function() {
            pct_no_car = DP04_0058P,
            pct_car_commute = S0801_C01_002,
            num_workers = S0801_C01_001,
-           unemployed = B23025_005) %>%
+           unemployed = B23025_005,
+           pov_white = S1701_C02_013,
+           pov_black = S1701_C02_014,
+           pov_asian = S1701_C02_016,
+           pov_anai = S1701_C02_015,
+           pov_nhpi = S1701_C02_017,
+           pov_other = S1701_C02_018,
+           pov_two_more = S1701_C02_019,
+           pov_hisp = S1701_C02_020,
+           pov_children_total = S1701_C02_002,
+           pov_seniors_total =  S1701_C02_010,
+           children_total = DP05_0019,
+           seniors_total = DP05_0024) %>%
     mutate(pct_black = black / total_pop,
            pct_white = white / total_pop,
            pct_hispanic = hispanic / total_pop,
@@ -200,7 +216,7 @@ map_access_within_t <- function(ttc,
                    ttc, 
                    by = c("GEOID" = "geoid_start")) %>%
     mutate({{ need_var }} := as.factor(.data[[need_var]]),
-           access_in_limit = factor(ifelse(min_duration <= t_limit, 1, 0)))
+           access_in_limit = factor(ifelse(min_duration <= t_limit, "Yes", "No")))
   
   set_urbn_defaults(style = "map")
   
