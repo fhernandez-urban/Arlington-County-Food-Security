@@ -14,7 +14,11 @@ read_process_acs <- function() {
                               "B01001_025", "B01001_027", "B01001_028",
                               "B01001_029", "B01001_030", "B01001_044",
                               "B01001_045", "B01001_046", "B01001_047",
-                              "B01001_048", "B01001_049"),
+                              "B01001_048", "B01001_049", "S1701_C02_013",
+                              "S1701_C02_014", "S1701_C02_015", "S1701_C02_016",
+                              "S1701_C02_017", "S1701_C02_018", "S1701_C02_019",
+                              "S1701_C02_020", "S1701_C02_002", "S1701_C02_010",
+                              "DP05_0019", "DP05_0024"),
                 geometry = TRUE)
   
   wide_acs <- acs %>% select(-moe) %>% 
@@ -33,7 +37,19 @@ read_process_acs <- function() {
            pct_no_car = DP04_0058P,
            pct_car_commute = S0801_C01_002,
            num_workers = S0801_C01_001,
-           unemployed = B23025_005) %>%
+           unemployed = B23025_005,
+           pov_white = S1701_C02_013,
+           pov_black = S1701_C02_014,
+           pov_asian = S1701_C02_016,
+           pov_anai = S1701_C02_015,
+           pov_nhpi = S1701_C02_017,
+           pov_other = S1701_C02_018,
+           pov_two_more = S1701_C02_019,
+           pov_hisp = S1701_C02_020,
+           pov_children_total = S1701_C02_002,
+           pov_seniors_total =  S1701_C02_010,
+           children_total = DP05_0019,
+           seniors_total = DP05_0024) %>%
     mutate(pct_black = black / total_pop,
            pct_white = white / total_pop,
            pct_hispanic = hispanic / total_pop,
@@ -43,7 +59,13 @@ read_process_acs <- function() {
              B01001_027 + B01001_028 + B01001_029 + B01001_030,
            num_senior = B01001_020 + B01001_021 + B01001_022 + B01001_023 +
              B01001_024 + B01001_025 + B01001_044 + B01001_045 + B01001_046 +
-             B01001_047 + B01001_048 + B01001_049) %>%
+             B01001_047 + B01001_048 + B01001_049,
+           is_high_pov_senior = ifelse(pov_seniors_total >= quantile(pov_seniors_total, 0.9), 1, 0),
+           is_high_pov_child = ifelse(pov_children_total >= quantile(pov_children_total, 0.9), 1, 0),
+           pct_pov_black = pov_black/sum(pov_black, na.rm = TRUE),
+           pct_pov_white = pov_white/sum(pov_white, na.rm = TRUE),
+           pct_pov_asian = pov_asian/sum(pov_asian, na.rm = TRUE),
+           pct_pov_hisp = pov_hisp/sum(pov_hisp, na.rm = TRUE)) %>%
     select(-starts_with("B01001"))
   
   return(wide_acs)
@@ -200,7 +222,7 @@ map_access_within_t <- function(ttc,
                    ttc, 
                    by = c("GEOID" = "geoid_start")) %>%
     mutate({{ need_var }} := as.factor(.data[[need_var]]),
-           access_in_limit = factor(ifelse(min_duration <= t_limit, 1, 0)))
+           access_in_limit = factor(ifelse(min_duration <= t_limit, "Yes", "No")))
   
   set_urbn_defaults(style = "map")
   
@@ -233,81 +255,176 @@ map_access_within_t <- function(ttc,
   return(access_in_t)
 }  
 
-make_bar_plot_race <- function(acs_data, all_data, city) {
+make_bar_plot_race <- function(county_shp, ttc, opp, dur_type) {
+  opp_formatted <- gsub("\ ", "_", tolower(opp))
+  dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
   
-  avg_schools <- all_data %>%
-    group_by(start) %>%
-    summarise(min_duration = min(duration, na.rm = TRUE))
+  county_shp$geometry <- NULL
   
-  avg_schools_demographic <- left_join(avg_schools, acs_data, by = c("start" = "GEOID")) %>%
-    mutate(min_duration_black_pop = min_duration * B02001_003,
-           min_duration_white_pop = min_duration * B02001_002,
-           min_duration_hispanic_pop = min_duration * B03003_003,
-           min_duration_asian_pop = min_duration * B02001_005)
+  wt_avg_race <- left_join(county_shp,
+                   ttc,
+                   by = c("GEOID" = "geoid_start")) %>%
+    mutate(min_duration = ifelse(min_duration > 30 , 30, min_duration),
+      across(starts_with("pct_pov"), ~.x * min_duration)) %>%
+    select(starts_with("pct_pov")) %>%
+    colSums(na.rm = TRUE)
   
-  
-  wt_black <- (sum(avg_schools_demographic$min_duration_black_pop, na.rm = TRUE) / 
-                 sum(avg_schools_demographic$B02001_003, na.rm = TRUE))
-  wt_white <- (sum(avg_schools_demographic$min_duration_white_pop, na.rm = TRUE) / 
-                 sum(avg_schools_demographic$B02001_002, na.rm = TRUE))
-  wt_hispanic <- (sum(avg_schools_demographic$min_duration_hispanic_pop, na.rm = TRUE) / 
-                    sum(avg_schools_demographic$B03003_003, na.rm = TRUE))
-  wt_asian <- (sum(avg_schools_demographic$min_duration_asian_pop, na.rm = TRUE) / 
-                 sum(avg_schools_demographic$B02001_005, na.rm = TRUE))
-  
-  df <- data.frame(cbind(c("Black", "White", "Hispanic", "Asian"),
-                         c(wt_black, wt_white, wt_hispanic, wt_asian)))
-  names(df) <- c("variable", "value")
+  df <- tribble(
+    ~race, ~wt_avg,
+    "Black", wt_avg_race[["pct_pov_black"]],
+    "White", wt_avg_race[["pct_pov_white"]],
+    "Hispanic", wt_avg_race[["pct_pov_hisp"]],
+    "Asian", wt_avg_race[["pct_pov_asian"]]
+  )
   
   set_urbn_defaults(style = "print")
-  race_bar_plot <- df %>% mutate(value = round(as.numeric(as.character(value)), 2)) %>%
-    ggplot(aes(x = variable, y = value, fill = variable)) +
+  race_bar_plot <- df %>% mutate(wt_avg = round(wt_avg, 2), race = as.factor(race)) %>%
+    ggplot(aes(x = race, y = wt_avg, fill = race)) +
     geom_bar(stat="identity") +
-    labs(title = paste("Weighted Average Time to Closest 2-Year College by Race in", city, sep = " "), 
-         fill = "Race",
-         y = "Time (minutes)",
-         x = "Race") +
-    geom_text(aes(label=value), vjust=-0.3, size=3.5) +
-    ggsave(here("../access-analysis/images", 
-                paste(city, "race_wt_avg.png", sep = "_")))
+    labs(y = "Weighted Average Time (minutes)",
+         x = "Race/Ethnicity Group") +
+    geom_text(aes(label=wt_avg), vjust=-0.3, size=3.5) +
+    scale_fill_manual(values = c("#1696d2", "#fdbf11", "#000000", "#d2d2d2"),
+                       guide = 'none') 
+  
+  ggsave(
+    plot = race_bar_plot,
+    filename = here("routing/images", 
+                    str_glue("access_to_{opp_formatted}_{dur_type_formatted}_race.pdf")),
+    height = 6, width = 10, units = "in", dpi = 500, 
+    device = cairo_pdf)
   
   return(race_bar_plot)
 }
 
-make_bar_plot_poverty_status <- function(acs_data, all_data, city) {
-  avg_schools <- all_data %>%
-    group_by(start) %>%
-    summarise(min_duration = min(duration, na.rm = TRUE))
+make_scatter_plot_race <- function(county_shp, ttc, opp, dur_type) {
+  opp_formatted <- gsub("\ ", "_", tolower(opp))
+  dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
   
-  avg_schools_demographic <- left_join(avg_schools, acs_data, by = c("start" = "GEOID")) %>%
-    mutate(hh_below_pov = C17002_002 + C17002_003,
-           hh_above_pov = C17002_001 - hh_below_pov,
-           min_duration_below_pov = min_duration * hh_below_pov,
-           min_duration_above_pov = min_duration * hh_above_pov)
+  county_shp$geometry <- NULL
+  
+  dur_pov_race <- left_join(county_shp,
+                           ttc,
+                           by = c("GEOID" = "geoid_start")) %>%
+    #mutate(across(starts_with("pct_pov"), ~.x * min_duration)) %>%
+    select("pov_asian", "pov_black", "pov_hisp", "pov_white", "min_duration", "GEOID") %>%
+    mutate(min_duration = ifelse(min_duration > 30 , 30, min_duration)) %>%
+    pivot_longer(-c(min_duration, GEOID), 
+                 names_to = "race", 
+                 names_prefix = "pov_", 
+                 values_to = "num_pov")
+  scatter_race <- ggplot(dur_pov_race, mapping = aes(x = num_pov, y = min_duration, color = race)) +
+    geom_point() +
+    facet_wrap(~race, ncol = 2) +
+    labs(x = "Population Under Federal Poverty Line",
+         y = "Time (minutes)")+
+    scatter_grid()
+                           
+    
   
   
-  wt_below_pov <- (sum(avg_schools_demographic$min_duration_below_pov, na.rm = TRUE) / 
-                     sum(avg_schools_demographic$hh_below_pov, na.rm = TRUE))
-  wt_above_pov <- (sum(avg_schools_demographic$min_duration_above_pov, na.rm = TRUE) / 
-                     sum(avg_schools_demographic$hh_above_pov, na.rm = TRUE))
+}
+
+
+make_facet_map_race_avg <- function(county_shp, ttc, opp, dur_type, road) {
+  opp_formatted <- gsub("\ ", "_", tolower(opp))
+  dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
   
-  df <- data.frame(cbind(c("Above Poverty Line", "Below Poverty Line"),
-                         c(wt_above_pov, wt_below_pov)))
-  names(df) <- c("variable", "value")
-  #df <- df %>% mutate(value = ifelse(is.infinite(value), 0, value))
+  wt_avg_race <- left_join(county_shp,
+                           ttc,
+                           by = c("GEOID" = "geoid_start")) %>%
+    mutate(min_duration = ifelse(min_duration > 30 , 30, min_duration),
+           across(starts_with("pct_pov"), ~.x * min_duration)) %>%
+    select(starts_with("pct_pov"), "GEOID")
   
-  set_urbn_defaults(style = "print")
-  pov_bar_plot <- df %>% mutate(value = round(as.numeric(as.character(value)), 2)) %>%
-    ggplot(aes(x = variable, y = value, fill = variable)) +
-    geom_bar(stat="identity") +
-    labs(title = paste("Weighted Average Time to Closest 2-Year College by Poverty Status in", city, sep = " "), 
-         fill = "Poverty Status",
-         y = "Time (minutes)",
-         x = "Poverty Status") +
-    geom_text(aes(label=value), vjust=-0.3, size=3.5) +
-    ggsave(here("../access-analysis/images", 
-                paste(city, "poverty_wt_avg.png", sep = "_")),
-           width = 8, height = 8)
+  wt_avg_race$geometry <- NULL
   
-  return(pov_bar_plot)
+  wt_avg_race <- wt_avg_race %>%
+    pivot_longer(-c(GEOID),
+                 names_to = "race", 
+                 names_prefix = "pct_pov_", 
+                 values_to = "wt_min_dur") 
+  
+  all_data <- county_shp %>%
+    select(GEOID) %>%
+    left_join(wt_avg_race, by = "GEOID") 
+    
+  
+  set_urbn_defaults(style = "map")
+  urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
+  
+  
+  map_facet_race <- ggplot() +
+    geom_sf(data = all_data, mapping = aes(fill = wt_min_dur)) +
+    #scale_fill_gradientn(colours = rev(urban_colors)) %>%
+    facet_wrap(~race, ncol = 2)
+  
+  ggsave(
+    plot = map_facet_race,
+    filename = here("routing/images", 
+                    str_glue("map_wt_dur_{opp_formatted}_{dur_type_formatted}_race.pdf")),
+    height = 8, width = 8, units = "in", dpi = 500, 
+    device = cairo_pdf)
+  
+  return(map_facet_race)
+  
+}
+ 
+make_dot_density_race <- function(county_shp){
+  pop_pov_race <- county_shp %>%
+    select("pov_asian", "pov_black", "pov_hisp", "pov_white", "GEOID")
+  
+  pop_pov_race$geometry <- NULL
+  
+  pop_pov_race <-pop_pov_race %>%
+    pivot_longer(-c(GEOID),
+                 names_to = "race", 
+                 names_prefix = "pov_", 
+                 values_to = "pop_pov") 
+  
+  all_data <- county_shp %>%
+    select(GEOID) %>%
+    left_join(pop_pov_race, by = "GEOID") 
+  
+  groups <- unique(all_data$race)
+  
+  race_dots <- map_dfr(groups, ~ {
+    all_data %>%
+      filter(race == .x) %>%
+      st_transform(crs = "EPSG:6487") %>%
+      # Have every dot represent 100 people
+      mutate(est50 = as.integer(pop_pov / 10)) %>%
+      st_sample(size = .$est50, exact = TRUE) %>%
+      st_sf() %>%
+      # Add group (ie race) as a column so we can use it when plotting
+      mutate(group = .x)
+  })
+  
+  dot_map <- ggplot() +
+    # Plot tracts, then dots on top of tracts
+    geom_sf(
+      data = county_shp,
+      # Make interior of tracts transparent and boundaries black
+      fill = "transparent",
+      color = "black"
+    ) +
+    geom_sf(
+      data = race_dots,
+      # Color in dots by racial group
+      aes(color = group),
+      # Adjust transparency and size to be more readable
+      alpha = 0.5,
+      size = 1.5,
+      stroke = FALSE,
+      shape = 19
+    ) 
+  
+  ggsave(
+    plot = dot_map,
+    filename = here("routing/images", 
+                    str_glue("dot_density_race.pdf")),
+    height = 6, width = 10, units = "in", dpi = 500, 
+    device = cairo_pdf)
+  
+  return(dot_map)
 }
