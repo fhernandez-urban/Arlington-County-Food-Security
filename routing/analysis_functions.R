@@ -313,6 +313,7 @@ make_scatter_plot_race <- function(county_shp, ttc, opp, dur_type) {
                  names_to = "race", 
                  names_prefix = "pov_", 
                  values_to = "num_pov")
+  set_urbn_defaults(style = "print")
   scatter_race <- ggplot(dur_pov_race, mapping = aes(x = num_pov, y = min_duration, color = race)) +
     geom_point() +
     facet_wrap(~race, ncol = 2) +
@@ -320,7 +321,15 @@ make_scatter_plot_race <- function(county_shp, ttc, opp, dur_type) {
          y = "Time (minutes)")+
     scatter_grid()
                            
-    
+  
+  ggsave(
+    plot = scatter_race,
+    filename = here("routing/images", 
+                    str_glue("scatter_wt_dur_{opp_formatted}_{dur_type_formatted}_race.pdf")),
+    height = 8, width = 8, units = "in", dpi = 500, 
+    device = cairo_pdf)
+  
+  return(scatter_race)
   
   
 }
@@ -392,7 +401,7 @@ make_dot_density_race <- function(county_shp){
     all_data %>%
       filter(race == .x) %>%
       st_transform(crs = "EPSG:6487") %>%
-      # Have every dot represent 100 people
+      # Have every dot represent 10 people
       mutate(est50 = as.integer(pop_pov / 10)) %>%
       st_sample(size = .$est50, exact = TRUE) %>%
       st_sf() %>%

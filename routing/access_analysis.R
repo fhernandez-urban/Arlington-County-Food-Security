@@ -340,7 +340,7 @@ map_char_sen_ttc_transit <- map_time_to_closest(
   road = road)
 
 
-# Time to closest child site, Highlight top tracts by num sen under fpl
+# Time to closest child site, Highlight top tracts by num child under fpl
 map_char_child_ttc <- map_time_to_closest(
   ttc = all_ttc %>% 
     filter(route_date == "2021-09-15", 
@@ -467,5 +467,13 @@ facet_map_char_week <- make_facet_map_race_avg(county_shp = acs,
                         opp = "Weekly Open Charitable Food Location",
                         dur_type = "Weighted Travel Time",
                         road = road)
+
+facet_scatter_char_week <- make_scatter_plot_race(county_shp = acs, 
+                                               ttc = all_ttc %>% 
+                                                 filter(route_date == "2021-09-15", 
+                                                        food_type == "char_open_weekly",
+                                                        dur_type == "wt_duration_com"), 
+                                               opp = "Weekly Open Charitable Food Location",
+                                               dur_type = "Weighted Travel Time")
 
 dot_density_map <- make_dot_density_race(acs)
