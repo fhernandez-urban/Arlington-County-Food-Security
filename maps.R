@@ -109,7 +109,7 @@ acs_ficombo <- wide_acs %>% left_join(combined_FI_MFI, by = "GEOID")
 
 #Retailer data
 ##SNAP Retailers
-snap_fs <- read_csv("Final food data/Food site data/Food_retailers_MAPPING.csv")
+snap_fs <- read_csv("Food site data/Food_retailers_MAPPING.csv")
 snap_fs<-snap_fs[!(snap_fs$zip_code==22306 | snap_fs$zip_code==22044),]
 # snap_fs <- snap_fs %>% mutate(freq_flag = case_when(frequency %in% c(
 #   "3 times weekly", "3 times weekly. Participants can come once a week.", 
@@ -119,6 +119,7 @@ snap_fs<-snap_fs[!(snap_fs$zip_code==22306 | snap_fs$zip_code==22044),]
 #   relocate(freq_flag, .after = "frequency")
 
 ##Charitable food sites
+
 cfs_all <- read.csv("Final food data/Food_retailers_cfs_o2a.csv")
 cfs_kids <- read.csv("Final food data/Food_retailers_cfs_child.csv")
 cfs_elder <- read.csv("Final food data/Food_retailers_cfs_elder.csv")
@@ -190,6 +191,12 @@ fs_cfsall <- fsite_all %>%
   filter(!location_type %in% c("School summer feeding sites"))
 
 
+##NEEDS TO BE FIXED
+fsite_nonsnap <- non_snap %>%
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4269) %>% 
+  st_transform(crs = 6487)
+
 
 #MISC
 urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
@@ -199,6 +206,7 @@ two_color <- c("#ec008b", "#fdbf11")
 three_color <- c("#ec008b", "#fdbf11", "#000000")
 four_color <- c("#55b748", "#db2b27", "#696969", "#fdbf11")
 two_color2 <- c("#55b748", "#fdbf11")
+
 
 # Function to produce maps ------------------------------------------------
 
@@ -236,6 +244,7 @@ map_snap <-  function (data1 = acs_ficombo,data2=fsite_snap, percent_variable = 
     theme(legend.position = "left")
   return(plot)
 }
+
 
 # MAPS
 #Arlington county
@@ -382,3 +391,4 @@ ggplot(acs_ficombo, aes(fill = FI)) +
   scale_color_manual(name = "Open during NTH", values = two_color2)+
   theme(legend.position = "right")
 ggsave("Final Maps/fsites_cfs_nth.png", height = 6, width = 12, units = "in", dpi = 500)
+
