@@ -5,7 +5,18 @@ library(here)
 library(sf)
 library(tigris)
 library(urbnthemes)
+library(Cairo)
+library(patchwork)
+library(urbnmapr)
+library (tigris)
+library(censusapi)
+library(forcats)
+library(gridExtra)
+library(scales)
+library(extrafont)
 source("routing/analysis_functions.R")
+set_urbn_defaults(style = "map")
+
 
 routes_transit <- read_csv(here("routing/data", "all_routes_transit_final.csv"),
                    col_types = c("geoid_start" = "character",
@@ -79,36 +90,50 @@ routes_acs <- routes_wide %>%
          wt_duration = CAR * (1 - pct_no_car/100) + TRANSIT * (pct_no_car/100),
          wt_duration_com = CAR * pct_car_commute/100 + TRANSIT * (1 - pct_car_commute/100))
 
-food_sites <- read_csv(here("Final food data/Food site data", "Food_retailers_TRANSPORT.csv")) %>%
+food_sites <- read_csv(here("Final food data", "Food_retailers_TRANSPORT.csv")) %>%
   #Exclude food sites that are available by appointment
-  filter(is.na(frequency_visit) | frequency_visit != "Other frequency") %>%
+  filter(is.na(frequency_visit) | frequency_visit != "Other frequency",
+         !zip_code %in% c(22306, 22044),
+         !location_address %in% c("3159 Row St.", "3305 Glen Carlyn Rd")) %>%
+  filter(!is.na(latitude)) %>%
   st_as_sf(coords = c("longitude", "latitude")) %>%
-  st_set_crs(4269) 
-
-va_tract <- tracts(state = "51")
-tract_food <- st_join(va_tract, food_sites, join = st_intersects)
-
-tract_food <- tract_food %>%
+  st_set_crs(4269) %>%
   mutate(is_snap = case_when(location_type == "SNAP-retailer" ~ 1,
                              T ~ 0),
          is_charitable = case_when(location_type == "Charitable food-site" ~ 1,
                                    T ~ 0),
-         char_open_all = case_when(elig_type == "No age restriction" ~ 1,
-                               T ~ 0),
-         char_open_weekly = case_when((elig_type == "No age restriction" & 
-                                         frequency_visit == "Weekly or more frequent") ~ 1,
+         char_open_all = case_when((restrictions == "Open to all" & 
+                                      year_round == "Open year-round") ~ 1,
                                    T ~ 0),
-         char_child_all = case_when(elig_type == "Open to children only" ~ 1,
-                                T ~ 0),
-         char_child_weekly = case_when((elig_type == "Open to children only" &
-                                          frequency_visit == "Weekly or more frequent") ~ 1,
+         char_open_flexible = case_when((restrictions == "Open to all" & 
+                                      year_round == "Open year-round" &
+                                        (weekends == "Yes"| open_afterhrs == "Open at or after 5:00 PM") ) ~ 1,
+                                   T ~ 0),
+         char_open_flexible_weekly = case_when((restrictions == "Open to all" & 
+                                           year_round == "Open year-round" &
+                                             frequency_visit == "Weekly or more frequent" &
+                                           (weekends == "Yes"| open_afterhrs == "Open at or after 5:00 PM") ) ~ 1,
+                                        T ~ 0),
+         char_open_weekly = case_when((restrictions == "Open to all" & 
+                                         frequency_visit == "Weekly or more frequent" &
+                                         year_round == "Open year-round") ~ 1,
+                                      T ~ 0),
+         char_child_all = case_when(restrictions == "Serving children only" ~ 1,
                                     T ~ 0),
-         char_sen_all = case_when(elig_type == "Open to seniors only" ~ 1,
-                              T ~ 0),
-         char_sen_weekly = case_when((elig_type == "Open to seniors only" &
+         char_child_weekly = case_when((restrictions == "Serving children only" &
+                                          frequency_visit == "Weekly or more frequent") ~ 1,
+                                       T ~ 0),
+         char_sen_all = case_when(restrictions == "Serving elders only"~ 1,
+                                  T ~ 0),
+         char_sen_weekly = case_when((restrictions == "Serving elders only" &
                                         frequency_visit == "Weekly or more frequent") ~ 1,
-                                  T ~ 0)
+                                     T ~ 0)
   )
+
+va_tract <- tracts(state = "51")
+# get road shapefle
+road <- roads(state = "Virginia", county = "013")
+tract_food <- st_join(va_tract, food_sites, join = st_intersects)
 
 tract_food_count <- tract_food %>%
   group_by(GEOID) %>%
@@ -119,6 +144,16 @@ tract_food_count <- tract_food %>%
 # Number of tracts in Arlington County with a SNAP retailer in the tract
 tract_food_count %>%
   filter(substr(GEOID, 1, 5) == "51013", is_snap > 0) %>%
+  nrow()
+
+# Number of tracts in Arlington County with a Charitable retailer in the tract
+tract_food_count %>%
+  filter(substr(GEOID, 1, 5) == "51013", is_charitable > 0) %>%
+  nrow()
+
+# Number of tracts in Arlington County with an Open Charitable retailer in the tract
+tract_food_count %>%
+  filter(substr(GEOID, 1, 5) == "51013", char_open_all > 0) %>%
   nrow()
 
 routes_all <- routes_acs %>%
@@ -138,7 +173,7 @@ fi <- read_csv(here("Final food data/ACS and FI-MFI",
 
 
 mfi <- read_csv(here("Final food data/ACS and FI-MFI", 
-                     "FI_ACS_data.csv"),
+                     "MFI_ACS_data.csv"),
                 col_types = c("geoid" = "character")) %>%
   select(geoid, percent_mfi = percent_food_insecure)
 
@@ -148,13 +183,10 @@ all_fi <- fi %>%
   mutate(is_high_fi = ifelse(percent_food_insecure > .12, 1, 0),
          is_high_mfi = ifelse(percent_mfi > .12, 1, 0)) 
 
-# number of tracts in Arlington with high food insecurity
-sum(snap_transit_wkdy$is_high_mfi, na.rm = TRUE)
-
-
 route_date <- c("2021-09-15", "2021-09-19")
 food_type <- c("is_snap", "is_charitable", "char_open_all", "char_open_weekly",
-               "char_sen_all", "char_sen_weekly", "char_child_all", "char_child_weekly")
+               "char_sen_all", "char_sen_weekly", "char_child_all", "char_child_weekly",
+               "char_open_flexible", "char_open_flexible_weekly")
 dur_type <- c("wt_duration", "wt_duration_com", "TRANSIT")
 
 ttc_params <- expand_grid(
@@ -215,11 +247,6 @@ count_snap <- all_cwt %>%
   summarise(min_count = min(count, na.rm = TRUE),
             max_count = max(count, na.rm = TRUE))
 
-snap_wkdy_count <- count_accessible_within_t(all_data = routes_all, 
-                                             food_type = count_snap, 
-                                             dur_type = wt_duration_com, 
-                                             t = 15, 
-                                             route_date = "2021-09-15")
 # look for just transit
 # look at number of retailers accessible
 
@@ -229,8 +256,10 @@ map_char_ttc <- map_time_to_closest(
            food_type == "char_open_all",
            dur_type == "wt_duration_com"),
   county_shp = acs,
-  opp = "Charitable Food Location",
-  need_var = "is_high_fi")
+  opp = "Open Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Weighted Travel Time",
+  road = road)
 
 map_char_ttc_wkly <- map_time_to_closest(
   ttc = all_ttc %>% 
@@ -238,12 +267,101 @@ map_char_ttc_wkly <- map_time_to_closest(
            food_type == "char_open_weekly",
            dur_type == "wt_duration_com"),
   county_shp = acs,
-  opp = "Weekly Charitable Food Location",
-  need_var = "is_high_fi")
+  opp = "Weekly Open Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Weighted Travel Time",
+  road = road)
 
-map_snap_com <- map_time_to_closest(acs, snap_wkdy_com, "SNAP Retailer")
+map_char_ttc_transit <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_all",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Open Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road)
 
-map_char <- map_time_to_closest(acs, char_open_wkdy, "Open Charitable Food Site")
+map_char_ttc_wkly_transit <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_weekly",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Weekly Open Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road)
+
+map_char_ttc_all_transit <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "is_charitable",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road)
+
+map_snap_ttc <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "is_snap",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "SNAP Retailer",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road)
+
+# Time to closest Senior Site, Highlight top tracts by num sen under fpl
+map_char_sen_ttc <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_sen_all",
+           dur_type == "wt_duration_com"),
+  county_shp = acs,
+  opp = "Open Charitable Food Location Seniors",
+  need_var = "is_high_pov_senior",
+  dur_type = "Weighted Travel Time",
+  road = road)
+
+map_char_sen_ttc_transit <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_sen_all",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Open Charitable Food Location Seniors",
+  need_var = "is_high_pov_senior",
+  dur_type = "Transit",
+  road = road)
+
+
+# Time to closest child site, Highlight top tracts by num sen under fpl
+map_char_child_ttc <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_child_all",
+           dur_type == "wt_duration_com"),
+  county_shp = acs,
+  opp = "Open Charitable Food Location Children",
+  need_var = "is_high_pov_child",
+  dur_type = "Weighted Travel Time",
+  road = road)
+
+map_char_child_ttc_transit <- map_time_to_closest(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_child_all",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Open Charitable Food Location Children",
+  need_var = "is_high_pov_child",
+  dur_type = "Transit",
+  road = road)
 
 map_count_snap <- map_count_within_t(
   count_within_t = all_cwt %>%
@@ -253,5 +371,101 @@ map_count_snap <- map_count_within_t(
            time == 20),
   county_shp = acs,
   opp = "SNAP Retailers",
-  need_var = "is_high_fi")
+  need_var = "is_high_fi",
+  dur_type = "Weighted Travel Time",
+  road = road)
 
+map_count_snap_transit <- map_count_within_t(
+  count_within_t = all_cwt %>%
+    filter(route_date == "2021-09-15", 
+           food_type == "is_snap",
+           dur_type == "TRANSIT",
+           time == 20),
+  county_shp = acs,
+  opp = "SNAP Retailers",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road)
+
+
+map_count_char_open <- map_count_within_t(
+  count_within_t = all_cwt %>%
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_all",
+           dur_type == "wt_duration_com",
+           time == 20),
+  county_shp = acs,
+  opp = "Open Charitable Food Locations",
+  need_var = "is_high_fi",
+  dur_type = "Weighted Travel Time",
+  road = road)
+
+map_count_char_open_transit <- map_count_within_t(
+  count_within_t = all_cwt %>%
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_all",
+           dur_type == "TRANSIT",
+           time == 20),
+  county_shp = acs,
+  opp = "Open Charitable Food Locations",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road)
+
+map_access_in_t_char_open_transit  <- map_access_within_t(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_all",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Open Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road,
+  t_limit = 20)
+
+map_access_in_t_char_open_transit  <- map_access_within_t(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_weekly",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Open Weekly Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road,
+  t_limit = 20)
+
+map_access_in_t_char_open_transit  <- map_access_within_t(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_flexible_weekly",
+           dur_type == "TRANSIT"),
+  county_shp = acs,
+  opp = "Flexible Charitable Food Location",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road,
+  t_limit = 20)
+
+# Racial Equity Analysis
+
+race_bar_char_ttc_wkly <- make_bar_plot_race(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_weekly",
+           dur_type == "wt_duration_com"),
+  county_shp = acs,
+  opp = "Weekly Open Charitable Food Location",
+  dur_type = "Weighted Travel Time")
+
+facet_map_char_week <- make_facet_map_race_avg(county_shp = acs, 
+                        ttc = all_ttc %>% 
+                          filter(route_date == "2021-09-15", 
+                                 food_type == "char_open_weekly",
+                                 dur_type == "wt_duration_com"), 
+                        opp = "Weekly Open Charitable Food Location",
+                        dur_type = "Weighted Travel Time",
+                        road = road)
+
+dot_density_map <- make_dot_density_race(acs)
