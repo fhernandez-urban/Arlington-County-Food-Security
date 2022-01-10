@@ -60,7 +60,11 @@ acs = get_acs(state = "51", county = "013", geography = "tract",
                             "B17001_009", "B17001_015", "B17001_016", 
                             "B17001_018", "B17001_019", "B17001_020", 
                             "B17001_021", "B17001_022", "B17001_023", 
-                            "B17001_029", "B17001_030"),
+                            "B17001_029", "B17001_030", "S1701_C02_013",
+                            "S1701_C02_014", "S1701_C02_016", "S1701_C02_015", 
+                            "S1701_C02_017", "S1701_C02_018", "S1701_C02_019", 
+                            'S1701_C02_020', 'S1701_C02_002', "S1701_C02_010", 
+                            'DP05_0019', "DP05_0024"),
               geometry = T)
 
 wide_acs <- acs %>% dplyr::select(-moe) %>% 
@@ -171,13 +175,18 @@ combined_FI_MFI <- read_excel("Raw FI/Combined FI-MFI.xlsx")%>%
 
 ##Merging on ACS and FI/MFI data
 acs_ficombo <- wide_acs %>% left_join(combined_FI_MFI, by = "GEOID") %>% 
-  mutate(is_high_fi = as.factor(ifelse(FI > .12, 1, 0)))
-acs_ficombo$FI[58:59] <- NA
+  mutate(is_high_fi = as.factor(ifelse(FI > .12, 1, 0))) 
+is.na(tail(acs_ficombo[4:99], 2))
 
+omit <- names(acs_ficombo[4:99])
+
+acs_ficombo$pov_seniors_total[58:59] <- NA
+acs_ficombo$pov_children_total[58:59] <- NA
 acs_ficombo <- acs_ficombo %>% 
   st_transform(crs = 6487)
 
-#Retailer data
+
+# Retailer Data -----------------------------------------------------------
 ##SNAP Retailers
 snap_fs <- read_csv("Final food data/Food_retailers_MAPPING.csv") 
 
@@ -221,16 +230,18 @@ fsite_snap <- snap_fs %>%
 fs_cfsall <- fsite_all %>% 
   filter(!location_type %in% c("SNAP-retailer"))
   
-
+# charitable food sites with no restrictions 
 char_fullaccess <- fs_cfsall %>%
   mutate(accessible = as.factor(case_when((year_round == "Open year-round" &
          restrictions == "Open to all") ~ "Open all year without restrictions", 
-         TRUE ~ "Restrictions"))) 
+         TRUE ~ "Restrictions")))
 
+# charitable food sites with no restrictions and open weekly 
 char_frequent <- char_fullaccess %>% 
   filter(frequency_visit == "Weekly or more frequent", 
          accessible == "Open all year without restrictions")
 
+# charitable food sites with flexible 
 char_flexible <- char_fullaccess %>% 
   mutate(most_access = as.factor(case_when((frequency_visit == "Weekly or more frequent" &
          accessible == "Open all year without restrictions" &
@@ -239,7 +250,6 @@ char_flexible <- char_fullaccess %>%
 
 
 # SNAP Sites by Census Tract ----------------------------------------------
-
 snap_tracts <- acs_ficombo %>% 
   mutate(counts = lengths(st_intersects(., fsite_snap))) %>% 
   dplyr::select(NAME, counts)
@@ -267,8 +277,51 @@ two_color2 <- c("#55b748", "#fdbf11")
 # get road shapefle
 road <- roads(state = "Virginia", county = "013")
 
-#Arlington county
+# MAP 1.1 - children under poverty level 
+ggplot() +
+  geom_sf(acs_ficombo, mapping = aes(fill = pov_children_total, color = is_high_fi), size = 0.9) +
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5)+
+  scale_fill_gradientn(colours = urban_colors, name = "Number of children \nunder poverty line")+
+  scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
+                     guide = 'none') + 
+  new_scale_color()+
+  geom_sf(data = fs_cfsall %>% filter(restrictions == "Serving children only"), mapping = aes(color = location_type),size = 2.5, 
+          show.legend = "point", inherit.aes = F) +
+  scale_color_manual(values = "#fdbf11", 
+                     name = NULL,
+                     labels = "Charitable food sites \nserving children")+
+  theme(legend.position = "right", 
+        legend.box = "vertical", 
+        legend.key.size = unit(1, "cm"), 
+        legend.title = element_text(size=16), #change legend title font size
+        legend.text = element_text(size=16))
+ggsave("Final Maps/map1_1.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+       device = cairo_pdf)
 
+# MAP 1.2 - seniors under poverty level 
+ggplot() +
+  geom_sf(acs_ficombo, mapping = aes(fill = pov_seniors_total, color = is_high_fi), size = 0.9) +
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5)+
+  scale_fill_gradientn(colours = urban_colors, name = "Number of Seniors\nunder poverty line")+
+  scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
+                     guide = 'none') + 
+  new_scale_color()+
+  geom_sf(data = fs_cfsall %>% filter(restrictions == "Serving elders only"), mapping = aes(color = location_type),size = 2.5, 
+          show.legend = "point", inherit.aes = F) +
+  scale_color_manual(values = "#fdbf11", 
+                     name = NULL,
+                     labels = "Charitable food sites \nserving seniors")+
+  theme(legend.position = "right", 
+        legend.box = "vertical", 
+        legend.key.size = unit(1, "cm"), 
+        legend.title = element_text(size=16), #change legend title font size
+        legend.text = element_text(size=16))
+ggsave("Final Maps/map1_2.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+       device = cairo_pdf)
+
+#Arlington county
 ggplot() +
   geom_sf(acs_ficombo, mapping = aes(fill = FI, color = is_high_fi), size = 0.9) +
   geom_sf(data = road,
@@ -444,18 +497,26 @@ ggplot() +
 # }
 # 
 # ##SNAP retailers
-# map_snap <-  function (data1 = acs_ficombo,data2=fsite_snap, percent_variable = "pct_latine", title = "Percent Latine Population"){
+# map_snap <-  function (data1 = acs_ficombo,data2=fsite_snap, percent_variable = "pct_povchildu18", title = "Percent of Children Under \n Poverty Line"){
 #   percent_variable <- rlang::sym(percent_variable)
 #   plot <- ggplot() +
-#     geom_sf(data=acs_ficombo, aes(fill = FI), color = "grey")+
+#     geom_sf(data=acs_ficombo, aes(fill = pct_povchildu18, color = is_high_fi), size = 0.9)+
 #     geom_sf(data = road,
 #             color="grey", fill="white", size=0.25, alpha =.5)+
-#     scale_fill_gradientn(name = "Food Insecurity Rate", colours = urban_colors, labels = percent, 
+#     scale_fill_gradientn(name = title, colours = urban_colors, labels = percent,
 #                          limits = c(0,.15) ,breaks=c(0, .05, .10, .15)) +
-#     geom_sf(data = fsite_all, mapping = aes(color = elig_type),color = "#fdbf11",
+#     scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
+#                        guide = 'none') + 
+#     new_scale_color()+
+#     geom_sf(data = data2, mapping = aes(color = restrictions),color = "#fdbf11",
 #             size = 2.5, show.legend = "point", inherit.aes = F) +
-#     scale_color_discrete(name = "Eligibility type")+
-#     theme(legend.position = "left")
+#     scale_color_manual(values = "#fdbf11", 
+#                        name = "CFS Serving Children")+
+#     theme(legend.position = "right", 
+#           legend.box = "vertical", 
+#           legend.key.size = unit(1, "cm"), 
+#           legend.title = element_text(size=16), #change legend title font size
+#           legend.text = element_text(size=16))
 #   return(plot)
 # }
 # 
