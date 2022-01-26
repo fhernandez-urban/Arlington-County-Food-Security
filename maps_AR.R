@@ -174,6 +174,9 @@ combined_FI_MFI <- read_csv("Raw FI/Combined FI-MFI.csv")%>%
          GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0")) %>%
   dplyr::select(-tract)
 
+#Read in SNAP receipt data
+snaprec <- read_csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/snap_receipt.csv")
+
 ##Merging on ACS and FI/MFI data
 acs_ficombo <- wide_acs %>% left_join(combined_FI_MFI, by = "GEOID") %>% 
   mutate(is_high_fi = as.factor(ifelse(FI > .12, 1, 0))) 
