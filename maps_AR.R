@@ -152,6 +152,7 @@ wide_acs <- acs %>% dplyr::select(-moe) %>%
          pct_lblack = lblack / total_pop,
          pct_lwhite = lwhite / total_pop,
          pct_lasian = lasian / total_pop,
+         tot_125pov = (hh_under_0.5_poverty + hh_1_to_1.24_poverty),
          pct_185pov = (hh_under_0.5_poverty + hh_1_to_1.24_poverty + hh_1.25_to_1.49_poverty  + hh_1.5_to_1.84_poverty)/total_hh_poverty,
          pct_incrent35 = (pctincrent35_to_39.9 + pctincrent40_to_49.9 + pctincrent50_ormore)/total_pctincrent,
          pct_inetaccess = hh_inet/total_ipop,
@@ -168,7 +169,7 @@ arco_tracts <- tigris::tracts(state = "VA",
 arco_tracts <- subset(arco_tracts, COUNTYFP == "013")
 
 #FI/MFI data
-combined_FI_MFI <- read_excel("Raw FI/Combined FI-MFI.xlsx")%>%
+combined_FI_MFI <- read_csv("Raw FI/Combined FI-MFI.csv")%>%
   mutate(tract = str_replace(str_extract(geography, "\\d+\\.?\\d+"), "\\.", ""),
          GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0")) %>%
   dplyr::select(-tract)
