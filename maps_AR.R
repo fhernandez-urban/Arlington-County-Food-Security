@@ -174,21 +174,31 @@ combined_FI_MFI <- read_csv("Raw FI/Combined FI-MFI.csv")%>%
          GEOID = str_pad(paste0("51013", tract), side = "right", width = 11, pad = "0")) %>%
   dplyr::select(-tract)
 
-#Read in SNAP receipt data
-snaprec <- read_csv("https://raw.githubusercontent.com/fhernandez-urban/Arlington-County-Food-Security/main/Raw%20FI/snap_receipt.csv")
 
 ##Merging on ACS and FI/MFI data
 acs_ficombo <- wide_acs %>% left_join(combined_FI_MFI, by = "GEOID") %>% 
   mutate(is_high_fi = as.factor(ifelse(FI > .12, 1, 0))) 
-is.na(tail(acs_ficombo[4:99], 2))
 
-omit <- names(acs_ficombo[4:99])
 
-acs_ficombo$pov_seniors_total[58:59] <- NA
-acs_ficombo$pov_children_total[58:59] <- NA
+# acs_ficombo$pov_seniors_total[58:59] <- NA
+# acs_ficombo$pov_children_total[58:59] <- NA
+# acs_ficombo <- acs_ficombo %>% 
+#   st_transform(crs = 6487)
+
+
+
+# Arlington County Snap Data ----------------------------------------------
+
+arco_snap <- read_csv("Raw FI/SNAP Recept.csv") %>% 
+  mutate(GEOID = as.character(GEOID), 
+         coverage = case_when(Coverage > 0.99 ~0.99, 
+                              TRUE ~ Coverage))
+
+
+# Join snap coverage to data
 acs_ficombo <- acs_ficombo %>% 
-  st_transform(crs = 6487)
-
+  left_join(arco_snap, by = c("GEOID"))
+  
 
 # Retailer Data -----------------------------------------------------------
 ##SNAP Retailers
@@ -280,6 +290,28 @@ two_color2 <- c("#55b748", "#fdbf11")
 
 # get road shapefle
 road <- roads(state = "Virginia", county = "013")
+
+# Map ArCo Snap coverage
+ggplot() +
+  geom_sf(acs_ficombo, mapping = aes(fill = coverage, color = is_high_fi), size = 0.9) +
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5)+
+  scale_fill_gradientn(colours = urban_colors, name = "SNAP Coverage", labels = percent)+
+  scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
+                     guide = 'none') + 
+  new_scale_color()+
+  geom_sf(data = fsite_snap, mapping = aes(color = location_type),size = 2.5, 
+          show.legend = "point", inherit.aes = F) +
+  scale_color_manual(values = "#fdbf11", 
+                     name = NULL,
+                     labels = "SNAP Food Sites")+
+  theme(legend.position = "right", 
+        legend.box = "vertical", 
+        legend.key.size = unit(1, "cm"), 
+        legend.title = element_text(size=16), #change legend title font size
+        legend.text = element_text(size=16))
+ggsave("Final Maps/arco_snap_coverage_sites.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+       device = cairo_pdf)
 
 # MAP 1.1 - children under poverty level 
 ggplot() +
