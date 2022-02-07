@@ -60,8 +60,12 @@ read_process_acs <- function() {
            num_senior = B01001_020 + B01001_021 + B01001_022 + B01001_023 +
              B01001_024 + B01001_025 + B01001_044 + B01001_045 + B01001_046 +
              B01001_047 + B01001_048 + B01001_049,
-           is_high_pov_senior = ifelse(pov_seniors_total >= quantile(pov_seniors_total, 0.9), 1, 0),
-           is_high_pov_child = ifelse(pov_children_total >= quantile(pov_children_total, 0.9), 1, 0),
+           pct_pov_senior = if_else(seniors_total > 0, pov_seniors_total/seniors_total, 0),
+           pct_pov_child = if_else(children_total > 0, pov_children_total/children_total, 0),
+           is_high_num_pov_senior = ifelse(pov_seniors_total >= quantile(pov_seniors_total, 0.9), 1, 0),
+           is_high_num_pov_child = ifelse(pov_children_total >= quantile(pov_children_total, 0.9), 1, 0),
+           is_high_pov_senior = ifelse(pct_pov_senior >= quantile(pct_pov_senior, 0.9), 1, 0),
+           is_high_pov_child = ifelse(pct_pov_child>= quantile(pct_pov_child, 0.9), 1, 0),
            pct_pov_black = pov_black/sum(pov_black, na.rm = TRUE),
            pct_pov_white = pov_white/sum(pov_white, na.rm = TRUE),
            pct_pov_asian = pov_asian/sum(pov_asian, na.rm = TRUE),
