@@ -90,7 +90,12 @@ routes_acs <- routes_wide %>%
          wt_duration = CAR * (1 - pct_no_car/100) + TRANSIT * (pct_no_car/100),
          wt_duration_com = CAR * pct_car_commute/100 + TRANSIT * (1 - pct_car_commute/100))
 
+sfs_sites <- read_csv(here("Food site data", "Food_retailers_TRANSPORT.csv")) %>%
+  filter(sfsp == 1) %>%
+  mutate(weekends = as.character(weekends))
+
 food_sites <- read_csv(here("Final food data", "Food_retailers_TRANSPORT.csv")) %>%
+  bind_rows(sfs_sites) %>%
   #Exclude food sites that are available by appointment
   filter(is.na(frequency_visit) | frequency_visit != "Other frequency",
          !zip_code %in% c(22306, 22044),
@@ -118,9 +123,9 @@ food_sites <- read_csv(here("Final food data", "Food_retailers_TRANSPORT.csv")) 
                                          frequency_visit == "Weekly or more frequent" &
                                          year_round == "Open year-round") ~ 1,
                                       T ~ 0),
-         char_child_all = case_when(restrictions == "Serving children only" ~ 1,
+         char_child_all = case_when(restrictions == "Serving children only" | sfsp == 1~ 1,
                                     T ~ 0),
-         char_child_weekly = case_when((restrictions == "Serving children only" &
+         char_child_weekly = case_when(((restrictions == "Serving children only" | sfsp == 1) &
                                           frequency_visit == "Weekly or more frequent") ~ 1,
                                        T ~ 0),
          char_sen_all = case_when(restrictions == "Serving elders only"~ 1,
@@ -136,6 +141,7 @@ road <- roads(state = "Virginia", county = "013")
 tract_food <- st_join(va_tract, food_sites, join = st_intersects)
 
 tract_food_count <- tract_food %>%
+  select(-charitablefs) %>%
   group_by(GEOID) %>%
   summarise(across(c(starts_with("char"), is_snap, is_charitable),
                sum, na.rm = TRUE)
@@ -339,6 +345,16 @@ map_char_sen_ttc_transit <- map_time_to_closest(
   dur_type = "Transit",
   road = road)
 
+# proportion of children in poverty in focus tracts/other tracts
+# proportion of all children in poverty who live in focus tracts
+acs %>% 
+  group_by(is_high_pov_senior) %>% 
+  summarize(count_sen_pov = sum(pov_seniors_total), 
+            count_sen = sum(seniors_total)) %>%
+  mutate(total_pct_pov = count_sen_pov/count_sen,
+         pct_all_pov = count_sen_pov/sum(count_sen_pov))
+
+
 
 # Time to closest child site, Highlight top tracts by num child under fpl
 map_char_child_ttc <- map_time_to_closest(
@@ -362,6 +378,15 @@ map_char_child_ttc_transit <- map_time_to_closest(
   need_var = "is_high_pov_child",
   dur_type = "Transit",
   road = road)
+
+# proportion of children in poverty in focus tracts/other tracts
+# proportion of all children in poverty who live in focus tracts
+acs %>% 
+  group_by(is_high_pov_child) %>% 
+  summarize(count_child_pov = sum(pov_children_total), 
+            count_child = sum(children_total)) %>%
+  mutate(total_pct_pov = count_child_pov/count_child,
+         pct_all_pov = count_child_pov/sum(count_child_pov))
 
 map_count_snap <- map_count_within_t(
   count_within_t = all_cwt %>%
@@ -475,5 +500,31 @@ facet_scatter_char_week <- make_scatter_plot_race(county_shp = acs,
                                                         dur_type == "wt_duration_com"), 
                                                opp = "Weekly Open Charitable Food Location",
                                                dur_type = "Weighted Travel Time")
+
+race_bar_char_ttc_all <- make_bar_plot_race(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type == "char_open_all",
+           dur_type == "wt_duration_com"),
+  county_shp = acs,
+  opp = "Open Charitable Food Location",
+  dur_type = "Weighted Travel Time")
+
+facet_map_char_all <- make_facet_map_race_avg(county_shp = acs, 
+                                               ttc = all_ttc %>% 
+                                                 filter(route_date == "2021-09-15", 
+                                                        food_type == "char_open_all",
+                                                        dur_type == "wt_duration_com"), 
+                                               opp = "Open Charitable Food Location",
+                                               dur_type = "Weighted Travel Time",
+                                               road = road)
+
+facet_scatter_char_all <- make_scatter_plot_race(county_shp = acs, 
+                                                  ttc = all_ttc %>% 
+                                                    filter(route_date == "2021-09-15", 
+                                                           food_type == "char_open_all",
+                                                           dur_type == "wt_duration_com"), 
+                                                  opp = "Open Charitable Food Location",
+                                                  dur_type = "Weighted Travel Time")
 
 dot_density_map <- make_dot_density_race(acs)

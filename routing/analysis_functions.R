@@ -268,7 +268,7 @@ make_bar_plot_race <- function(county_shp, ttc, opp, dur_type) {
   wt_avg_race <- left_join(county_shp,
                    ttc,
                    by = c("GEOID" = "geoid_start")) %>%
-    mutate(min_duration = ifelse(min_duration > 30 , 30, min_duration),
+    mutate(min_duration = ifelse(min_duration > 30 , 30, min_duration) * 2,
       across(starts_with("pct_pov"), ~.x * min_duration)) %>%
     select(starts_with("pct_pov")) %>%
     colSums(na.rm = TRUE)
@@ -285,7 +285,7 @@ make_bar_plot_race <- function(county_shp, ttc, opp, dur_type) {
   race_bar_plot <- df %>% mutate(wt_avg = round(wt_avg, 2), race = as.factor(race)) %>%
     ggplot(aes(x = race, y = wt_avg, fill = race)) +
     geom_bar(stat="identity") +
-    labs(y = "Weighted Average Time (minutes)",
+    labs(y = "Weighted Average Round Trip Time (minutes)",
          x = "Race/Ethnicity Group") +
     geom_text(aes(label=wt_avg), vjust=-0.3, size=3.5) +
     scale_fill_manual(values = c("#1696d2", "#fdbf11", "#000000", "#d2d2d2"),
