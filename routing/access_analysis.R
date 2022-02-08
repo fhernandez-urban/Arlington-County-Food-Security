@@ -528,3 +528,28 @@ facet_scatter_char_all <- make_scatter_plot_race(county_shp = acs,
                                                   dur_type = "Weighted Travel Time")
 
 dot_density_map <- make_dot_density_race(acs)
+
+
+# Map showing interview tracts
+interview_tract_list <- c("51013102100", "51013102003",
+                          "51013102200", "51013103300")
+acs <- acs %>%
+  mutate(is_interview_tract = factor(ifelse(GEOID %in% interview_tract_list, 1, 0)))
+
+set_urbn_defaults(style = "map")
+interview_map <- ggplot() +
+  geom_sf(data = acs, mapping = aes(color = is_interview_tract),
+          size = .6,
+          fill = "#1696d2") +
+  #add roads to map
+  geom_sf(data = road,
+          color="grey", fill="white", size=0.25, alpha =.5) +
+  scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]),
+                     guide = 'none') 
+
+ggsave(
+  plot = interview_map,
+  filename = here("routing/images", "interview_tract_map.pdf"),
+  height = 6, width = 10, units = "in", dpi = 500, 
+  device = cairo_pdf)
+  
