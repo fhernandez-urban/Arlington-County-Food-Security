@@ -315,10 +315,10 @@ ggsave("Final Maps/arco_snap_coverage_sites.pdf", height = 6, width = 10, units 
 
 # MAP 1.1 - children under poverty level 
 ggplot() +
-  geom_sf(acs_ficombo, mapping = aes(fill = pov_children_total, color = is_high_fi), size = 0.9) +
+  geom_sf(acs_ficombo, mapping = aes(fill = pct_povchildu18, color = is_high_fi), size = 0.9) +
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5)+
-  scale_fill_gradientn(colours = urban_colors, name = "Number of children \nunder poverty line")+
+  scale_fill_gradientn(colours = urban_colors, name = "Percent of children \nunder poverty line", labels = percent)+
   scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                      guide = 'none') + 
   new_scale_color()+
@@ -332,15 +332,15 @@ ggplot() +
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16))
-ggsave("Final Maps/map1_1.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+ggsave("Final Maps/map1_1_pct.pdf", height = 6, width = 10, units = "in", dpi = 500, 
        device = cairo_pdf)
 
 # MAP 1.2 - seniors under poverty level 
 ggplot() +
-  geom_sf(acs_ficombo, mapping = aes(fill = pov_seniors_total, color = is_high_fi), size = 0.9) +
+  geom_sf(acs_ficombo, mapping = aes(fill = pct_povseniors, color = is_high_fi), size = 0.9) +
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5)+
-  scale_fill_gradientn(colours = urban_colors, name = "Number of Seniors\nunder poverty line")+
+  scale_fill_gradientn(colours = urban_colors, name = "Percent of Seniors\nunder poverty line", labels = percent)+
   scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                      guide = 'none') + 
   new_scale_color()+
@@ -354,7 +354,7 @@ ggplot() +
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16))
-ggsave("Final Maps/map1_2.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+ggsave("Final Maps/map1_2_pct.pdf", height = 6, width = 10, units = "in", dpi = 500, 
        device = cairo_pdf)
 
 #Arlington county
