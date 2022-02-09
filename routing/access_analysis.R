@@ -91,15 +91,18 @@ routes_acs <- routes_wide %>%
          wt_duration_com = CAR * pct_car_commute/100 + TRANSIT * (1 - pct_car_commute/100))
 
 sfs_sites <- read_csv(here("Food site data", "Food_retailers_TRANSPORT.csv")) %>%
-  filter(sfsp == 1) %>%
+  filter(sfsp == 1 | restrictions == "Serving children only" ) %>%
   mutate(weekends = as.character(weekends))
 
 food_sites <- read_csv(here("Final food data", "Food_retailers_TRANSPORT.csv")) %>%
-  bind_rows(sfs_sites) %>%
   #Exclude food sites that are available by appointment
   filter(is.na(frequency_visit) | frequency_visit != "Other frequency",
+         # exclude food sites not in Arlington County
          !zip_code %in% c(22306, 22044),
-         !location_address %in% c("3159 Row St.", "3305 Glen Carlyn Rd")) %>%
+         !location_address %in% c("3159 Row St.", "3305 Glen Carlyn Rd"),
+         # exclude food sites serving children to avoid double counting with sfs_sites
+         (is.na(restrictions) | restrictions != "Serving children only")) %>%
+  bind_rows(sfs_sites) %>%
   filter(!is.na(latitude)) %>%
   st_as_sf(coords = c("longitude", "latitude")) %>%
   st_set_crs(4269) %>%
@@ -368,6 +371,13 @@ map_char_child_ttc <- map_time_to_closest(
   dur_type = "Weighted Travel Time",
   road = road)
 
+ttc_high_pov_child = all_ttc %>% 
+  filter(route_date == "2021-09-15", 
+         food_type == "char_child_all",
+         dur_type == "wt_duration_com") %>%
+  left_join(acs, by = c("geoid_start" = "GEOID")) %>%
+  filter(is_high_pov_child == 1)
+
 map_char_child_ttc_transit <- map_time_to_closest(
   ttc = all_ttc %>% 
     filter(route_date == "2021-09-15", 
@@ -378,6 +388,13 @@ map_char_child_ttc_transit <- map_time_to_closest(
   need_var = "is_high_pov_child",
   dur_type = "Transit",
   road = road)
+
+ttc_high_pov_child = all_ttc %>% 
+  filter(route_date == "2021-09-15", 
+         food_type == "char_child_all",
+         dur_type == "TRANSIT") %>%
+  left_join(acs, by = c("geoid_start" = "GEOID")) %>%
+  filter(is_high_pov_child == 1)
 
 # proportion of children in poverty in focus tracts/other tracts
 # proportion of all children in poverty who live in focus tracts
@@ -538,12 +555,14 @@ acs <- acs %>%
 
 set_urbn_defaults(style = "map")
 interview_map <- ggplot() +
-  geom_sf(data = acs, mapping = aes(color = is_interview_tract),
-          size = .6,
-          fill = "#1696d2") +
+  geom_sf(data = acs, mapping = aes(fill = is_interview_tract, 
+                                    color = is_interview_tract),
+          size = .6) +
   #add roads to map
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5) +
+  scale_fill_manual(values = c("#1696d2", "#73bfe2"),
+                    guide = 'none') +
   scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]),
                      guide = 'none') 
 
