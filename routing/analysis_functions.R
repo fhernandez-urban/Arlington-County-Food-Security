@@ -105,7 +105,7 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
                            ttc, 
                            by = c("GEOID" = "geoid_start")) %>%
     mutate({{ need_var }} := as.factor(.data[[need_var]]),
-           min_duration = ifelse(min_duration > 30, 30, min_duration))
+           min_duration = ifelse(min_duration > 30, 30, min_duration) * 2)
   
   opp_formatted <- gsub("\ ", "_", tolower(opp))
   dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
@@ -120,9 +120,9 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
     geom_sf(data = road,
             color="grey", fill="white", size=0.25, alpha =.5) +
     scale_fill_gradientn(colours = urban_colors, 
-                         name = "Time (minutes)", 
-                         limits = c(0, 30),
-                         breaks=c(0, 10, 20, 30)) +
+                         name = "Round-Trip\nTime (minutes)", 
+                         limits = c(0, 60),
+                         breaks=c(0, 20, 40, 60)) +
     scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                        guide = 'none') + 
     #guides(fill = guide_colourbar(barheight = 8)) +
@@ -294,9 +294,8 @@ make_bar_plot_race <- function(county_shp, ttc, opp, dur_type) {
   ggsave(
     plot = race_bar_plot,
     filename = here("routing/images", 
-                    str_glue("access_to_{opp_formatted}_{dur_type_formatted}_race.pdf")),
-    height = 6, width = 10, units = "in", dpi = 500, 
-    device = cairo_pdf)
+                    str_glue("access_to_{opp_formatted}_{dur_type_formatted}_race.png")),
+    height = 3.5, width = 5, units = "in", dpi = 500)
   
   return(race_bar_plot)
 }
@@ -346,9 +345,9 @@ make_facet_map_race_avg <- function(county_shp, ttc, opp, dur_type, road) {
   wt_avg_race <- left_join(county_shp,
                            ttc,
                            by = c("GEOID" = "geoid_start")) %>%
-    mutate(min_duration = ifelse(min_duration > 30 , 30, min_duration),
+    mutate(min_duration = ifelse(min_duration > 30 , 30, min_duration) * 2,
            across(starts_with("pct_pov"), ~.x * min_duration)) %>%
-    select(starts_with("pct_pov"), "GEOID")
+    select(starts_with("pct_pov"), "GEOID", -pct_pov_child, -pct_pov_senior)
   
   wt_avg_race$geometry <- NULL
   
@@ -356,7 +355,13 @@ make_facet_map_race_avg <- function(county_shp, ttc, opp, dur_type, road) {
     pivot_longer(-c(GEOID),
                  names_to = "race", 
                  names_prefix = "pct_pov_", 
-                 values_to = "wt_min_dur") 
+                 values_to = "wt_min_dur") %>%
+    mutate(race = case_when(
+      race == "asian" ~ "Non-Latinx Asian",
+      race == "black" ~ "Non-Latinx Black",
+      race == "hisp" ~ "Latinx/Hispanic",
+      race == "white" ~ "Non-Latinx White"
+    ))
   
   all_data <- county_shp %>%
     select(GEOID) %>%
@@ -369,8 +374,9 @@ make_facet_map_race_avg <- function(county_shp, ttc, opp, dur_type, road) {
   
   map_facet_race <- ggplot() +
     geom_sf(data = all_data, mapping = aes(fill = wt_min_dur)) +
-    #scale_fill_gradientn(colours = rev(urban_colors)) %>%
-    facet_wrap(~race, ncol = 2)
+    scale_fill_gradientn(colours = urban_colors,
+                         name = "Weight in\nGroup Mean") +
+    facet_wrap(~race, ncol = 2) 
   
   ggsave(
     plot = map_facet_race,
