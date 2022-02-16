@@ -1,6 +1,6 @@
 read_process_acs <- function() {
   ## Uses tidycensus::get_acs function to query API and obtain ACS estimates
-  ## for defined variables. Reshapes data frame to wide.
+  ## for defined variables for Arlington County, VA. Reshapes data frame to wide.
   
   acs = get_acs(state = "51", county = "013", geography = "tract", 
                 variables = c("B02001_003", "B02001_002", "B01003_001",
@@ -48,18 +48,13 @@ read_process_acs <- function() {
            pov_hisp = S1701_C02_020,
            pov_children_total = S1701_C02_002,
            pov_seniors_total =  S1701_C02_010,
-           children_total = DP05_0019,
-           seniors_total = DP05_0024) %>%
+           children_total = S1701_C01_002,
+           seniors_total = S1701_C01_010) %>%
     mutate(pct_black = black / total_pop,
            pct_white = white / total_pop,
            pct_hispanic = hispanic / total_pop,
            pct_asian = asian / total_pop,
            pct_own_car = (total_hh_car - no_cars) / total_hh_car,
-           num_children = B01001_003 + B01001_004 + B01001_005 + B01001_006 +
-             B01001_027 + B01001_028 + B01001_029 + B01001_030,
-           num_senior = B01001_020 + B01001_021 + B01001_022 + B01001_023 +
-             B01001_024 + B01001_025 + B01001_044 + B01001_045 + B01001_046 +
-             B01001_047 + B01001_048 + B01001_049,
            pct_pov_senior = if_else(seniors_total > 0, pov_seniors_total/seniors_total, 0),
            pct_pov_child = if_else(children_total > 0, pov_children_total/children_total, 0),
            is_high_num_pov_senior = ifelse(pov_seniors_total >= quantile(pov_seniors_total, 0.9), 1, 0),
@@ -76,6 +71,18 @@ read_process_acs <- function() {
 }
 
 
+#' Travel Time To Closest
+#'
+#' @param all_data: dataframe of route data 
+#' @param fi_data dataframe of food insecurity data 
+#' @param food_type string with column name referring to type of food site
+#' @param dur_type string with column name referring to duration type
+#' @param route_date string with rout date in form YYYY-MM-DD
+#'
+#' @return time_to_closest dataframe with time to closest food site by start tract
+#' @export
+#'
+#' @examples
 travel_time_to_closest <- function(all_data, 
                                    fi_data,
                                    food_type, 
@@ -99,6 +106,19 @@ travel_time_to_closest <- function(all_data,
 }
 
 
+#' Map time to closest
+#'
+#' @param county_shp shapefile for county
+#' @param ttc dataframe of time to closest site created by travel_time_to_closest()
+#' @param opp string of food site type
+#' @param need_var string referring to variable name used to highlight tracts
+#' @param dur_type string referring to duration type
+#' @param road shapefile of road data
+#'
+#' @return time_to_closest ggplot map
+#' @export
+#'
+#' @examples
 map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
 
   ttc_shp <- left_join(county_shp, 
@@ -111,7 +131,8 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
   dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
   
   set_urbn_defaults(style = "map")
-  urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
+  urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", 
+                    "#1696d2", "#12719e", "#0a4c6a", "#062635")
   
   time_to_closest <- ggplot() +
     geom_sf(data = ttc_shp, 
@@ -125,7 +146,6 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
                          breaks=c(0, 20, 40, 60)) +
     scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                        guide = 'none') + 
-    #guides(fill = guide_colourbar(barheight = 8)) +
     theme(legend.position = "right", 
         legend.box = "vertical", 
         legend.key.size = unit(1, "cm"), 
@@ -142,6 +162,19 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
 }
 
 
+#' Count Accessible Within T
+#'
+#' @param all_data: dataframe of route data 
+#' @param fi_data dataframe of food insecurity data 
+#' @param food_type string with column name referring to type of food site
+#' @param dur_type string with column name referring to duration type
+#' @param t integer with time threshold to closest site
+#' @param route_date string with rout date in form YYYY-MM-DD
+#'
+#' @return
+#' @export
+#'
+#' @examples
 count_accessible_within_t <- function(all_data, 
                                       fi_data,
                                       food_type, 
@@ -164,6 +197,21 @@ count_accessible_within_t <- function(all_data,
 }
 
 
+#' Title
+#'
+#' @param count_within_t 
+#' @param county_shp 
+#' @param opp 
+#' @param need_var 
+#' @param dur_type 
+#' @param road 
+#' @param limits 
+#' @param breaks 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 map_count_within_t <- function(count_within_t, 
                                county_shp, 
                                opp, 
@@ -214,7 +262,8 @@ map_count_within_t <- function(count_within_t,
   
   return(count_t)
 }  
-  
+
+# this function is not used in analysis
 map_access_within_t <- function(ttc, 
                                county_shp, 
                                opp, 
@@ -259,6 +308,17 @@ map_access_within_t <- function(ttc,
   return(access_in_t)
 }  
 
+#' Title
+#'
+#' @param county_shp 
+#' @param ttc 
+#' @param opp 
+#' @param dur_type 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 make_bar_plot_race <- function(county_shp, ttc, opp, dur_type) {
   opp_formatted <- gsub("\ ", "_", tolower(opp))
   dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
@@ -300,6 +360,17 @@ make_bar_plot_race <- function(county_shp, ttc, opp, dur_type) {
   return(race_bar_plot)
 }
 
+#' Title
+#'
+#' @param county_shp 
+#' @param ttc 
+#' @param opp 
+#' @param dur_type 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 make_scatter_plot_race <- function(county_shp, ttc, opp, dur_type) {
   opp_formatted <- gsub("\ ", "_", tolower(opp))
   dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
@@ -338,6 +409,18 @@ make_scatter_plot_race <- function(county_shp, ttc, opp, dur_type) {
 }
 
 
+#' Title
+#'
+#' @param county_shp 
+#' @param ttc 
+#' @param opp 
+#' @param dur_type 
+#' @param road 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 make_facet_map_race_avg <- function(county_shp, ttc, opp, dur_type, road) {
   opp_formatted <- gsub("\ ", "_", tolower(opp))
   dur_type_formatted <- gsub("\ ", "_", tolower(dur_type))
@@ -369,7 +452,8 @@ make_facet_map_race_avg <- function(county_shp, ttc, opp, dur_type, road) {
     
   
   set_urbn_defaults(style = "map")
-  urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", "#12719e", "#0a4c6a", "#062635")
+  urban_colors <- c("#cfe8f3", "#a2d4ec", "#73bfe2", "#46abdb", "#1696d2", 
+                    "#12719e", "#0a4c6a", "#062635")
   
   
   map_facet_race <- ggplot() +
@@ -389,6 +473,14 @@ make_facet_map_race_avg <- function(county_shp, ttc, opp, dur_type, road) {
   
 }
  
+#' Title
+#'
+#' @param county_shp 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 make_dot_density_race <- function(county_shp){
   pop_pov_race <- county_shp %>%
     select("pov_asian", "pov_black", "pov_hisp", "pov_white", "GEOID")
@@ -436,7 +528,8 @@ make_dot_density_race <- function(county_shp){
       size = 1.5,
       stroke = FALSE,
       shape = 19
-    ) 
+    ) +
+    facet_wrap(~group, ncol = 2)
   
   ggsave(
     plot = dot_map,

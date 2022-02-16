@@ -6,9 +6,6 @@ library(sf)
 library(furrr)
 library(testit)
 
-#TODO
-# don't route same to same
-# impute mode and time for routes that can't be found
 
 make_config <- function(path_data, router_name){
   # Make router config with default parameters. You can edit these parameters if desired as described in 
@@ -179,8 +176,6 @@ batch_route <- function(df,
   #OTP wants coordinates as longitude, latitude
   from_place <- c(from_lon, from_lat)
   
-  
-  #modes <- c("CAR", c("TRANSIT", "WALK"))
   all_routes <- create_otp_plan(mode_out = mode,
                         from_place = from_place, 
                         to_places = to_places, 
@@ -198,7 +193,8 @@ route_date <- function(date, df_list, otpcon, mode){
   
   dt <- as.POSIXct(strptime(date, "%Y-%m-%d %H:%M:%S"), tz = "America/New_York")
   
-  # If a path cannot be found between the start and end point, the otp_plan will not return a row for that     start/end pair. Therefore, the dataframe returned by this function may be smaller than the input dataframe.
+  # If a path cannot be found between the start and end point, the otp_plan will not return a row for that     
+  # start/end pair. Therefore, the dataframe returned by this function may be smaller than the input dataframe.
   routes <- map_dfr(df_list, 
                     batch_route, 
                     otp_connection = otpcon, 
@@ -239,9 +235,6 @@ date <- c("2021-09-15 17:30:00", "2021-09-19 14:30:00")
 date_combo <- expand_grid(date, sec_diff)
 all_dates <- unlist(pmap(date_combo, function(date, sec_diff) as.character(as.POSIXct(date) + sec_diff)))
 
-#for testing
-#all_dates <- all_dates[1:2]
-
 ## Create folder for OTP and its Data + Download OTP ##
 path_data <- here("routing/otp")
 dir.create(path_data)
@@ -266,8 +259,6 @@ otpcon <- create_graph_setup_otp(path_data, path_otp, memory, router_name)
 
 #split dataframe into a list of dataframes on start tract geoid
 df_list <- split(df, f = df$geoid_start)
-# for testing
-#df_list <- df_list[1:3]
 
 all_routes_transit <- map_dfr(all_dates, 
                               route_date, 
