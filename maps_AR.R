@@ -263,6 +263,15 @@ char_flexible <- char_fullaccess %>%
          TRUE ~ "Some limitation")))
 
 
+# Summer Meal Sites -------------------------------------------------------
+
+summer <- read_csv('Food site data/Food_retailers_TRANSPORT.csv') %>% 
+  filter(elig_type == "Open to children only") %>% 
+  st_as_sf(coords = c("longitude", "latitude"),
+           crs = 4269) %>% 
+  st_transform(crs = 6487)
+
+
 # SNAP Sites by Census Tract ----------------------------------------------
 snap_tracts <- acs_ficombo %>% 
   mutate(counts = lengths(st_intersects(., fsite_snap))) %>% 
@@ -322,7 +331,7 @@ ggplot() +
   scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                      guide = 'none') + 
   new_scale_color()+
-  geom_sf(data = fs_cfsall %>% filter(restrictions == "Serving children only"), mapping = aes(color = location_type),size = 2.5, 
+  geom_sf(data = summer, mapping = aes(color = elig_type),size = 2.5, 
           show.legend = "point", inherit.aes = F) +
   scale_color_manual(values = "#fdbf11", 
                      name = NULL,
@@ -332,7 +341,7 @@ ggplot() +
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=16), #change legend title font size
         legend.text = element_text(size=16))
-ggsave("Final Maps/map1_1_pct.pdf", height = 6, width = 10, units = "in", dpi = 500, 
+ggsave("Final Maps/children_pct.pdf", height = 6, width = 10, units = "in", dpi = 500, 
        device = cairo_pdf)
 
 # MAP 1.2 - seniors under poverty level 
