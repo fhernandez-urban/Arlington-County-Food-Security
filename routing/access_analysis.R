@@ -303,6 +303,28 @@ map_char_ttc_wkly_transit <- map_time_to_closest(
   road = road)
 
 
+# Map Access within 40-min round trip for different eligibility
+
+map_char_access <- map_access_within_t(
+  ttc = all_ttc %>% 
+    filter(route_date == "2021-09-15", 
+           food_type %in% c("char_open_all", "char_open_weekly", "char_open_flexible_weekly"),
+           dur_type == "TRANSIT") %>%
+    mutate(food_type = factor(case_when(food_type == "char_open_all" ~ "Open year-round,\nno eligibility requirements",
+                                 food_type == "char_open_weekly" ~ "Open weekly year-round,\nno eligibility requirements",
+                                 food_type == "char_open_flexible_weekly" ~ "Open weekly and non-traditional hours\n year-round, no eligibility requirements"),
+                              levels = c("Open year-round,\nno eligibility requirements", 
+                                         "Open weekly year-round,\nno eligibility requirements",
+                                         "Open weekly and non-traditional hours\n year-round, no eligibility requirements"))
+           ),
+  county_shp = acs,
+  opp = "charitable food locations",
+  need_var = "is_high_fi",
+  dur_type = "Transit",
+  road = road, 
+  t_limit = 40)
+
+
 # Time to closest SNAP retailer
 map_snap_ttc <- map_time_to_closest(
   ttc = all_ttc %>% 

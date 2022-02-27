@@ -18,7 +18,7 @@ read_process_acs <- function() {
                               "S1701_C02_014", "S1701_C02_015", "S1701_C02_016",
                               "S1701_C02_017", "S1701_C02_018", "S1701_C02_019",
                               "S1701_C02_020", "S1701_C02_002", "S1701_C02_010",
-                              "DP05_0019", "DP05_0024"),
+                              "DP05_0019", "DP05_0024", "S1701_C01_002", "S1701_C01_010"),
                 geometry = TRUE)
   
   wide_acs <- acs %>% select(-moe) %>% 
@@ -263,7 +263,21 @@ map_count_within_t <- function(count_within_t,
   return(count_t)
 }  
 
-# this function is not used in analysis
+
+#' Title
+#'
+#' @param ttc 
+#' @param county_shp 
+#' @param opp 
+#' @param need_var 
+#' @param dur_type 
+#' @param road 
+#' @param t_limit 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 map_access_within_t <- function(ttc, 
                                county_shp, 
                                opp, 
@@ -275,7 +289,7 @@ map_access_within_t <- function(ttc,
                    ttc, 
                    by = c("GEOID" = "geoid_start")) %>%
     mutate({{ need_var }} := as.factor(.data[[need_var]]),
-           access_in_limit = factor(ifelse(min_duration <= t_limit, "Yes", "No")))
+           access_in_limit = factor(ifelse(min_duration*2 <= t_limit, "Yes", "No")))
   
   set_urbn_defaults(style = "map")
   
@@ -289,20 +303,21 @@ map_access_within_t <- function(ttc,
     geom_sf(data = road,
             color="white", fill="white", size=0.25, alpha =.5) +
     scale_fill_manual(values = c("grey", palette_urbn_main[["yellow"]]),
-                         name = str_glue("Access to any location\n within {t_limit} minutes")
+                         name = str_glue("Access to site in\n{t_limit} min round-trip")
                          ) +
     scale_color_manual(values = c("white", palette_urbn_main[["magenta"]]),
                        guide = 'none') +
     theme(legend.position = "right", 
           legend.box = "vertical", 
-          legend.key.size = unit(1, "cm"), 
-          legend.title = element_text(size=16), #change legend title font size
-          legend.text = element_text(size=16))
+          legend.key.size = unit(0.75, "cm"), 
+          legend.title = element_text(size=12), #change legend title font size
+          legend.text = element_text(size=12)) +
+    facet_wrap(~food_type, nrow = 1)
   ggsave(
     plot = access_in_t,
     filename = here("routing/images", 
                     str_glue("access_to_{opp_formatted}_in_{t_limit}_{dur_type_formatted}.pdf")),
-    height = 6, width = 10, units = "in", dpi = 500, 
+    height = 4, width = 10, units = "in", dpi = 500, 
     device = cairo_pdf)
   
   return(access_in_t)
@@ -337,25 +352,29 @@ make_bar_plot_race <- function(county_shp, ttc, opp, dur_type) {
     ~race, ~wt_avg,
     "Black", wt_avg_race[["pct_pov_black"]],
     "White", wt_avg_race[["pct_pov_white"]],
-    "Hispanic", wt_avg_race[["pct_pov_hisp"]],
+    "Latinx/Hispanic", wt_avg_race[["pct_pov_hisp"]],
     "Asian", wt_avg_race[["pct_pov_asian"]]
   )
   
   set_urbn_defaults(style = "print")
-  race_bar_plot <- df %>% mutate(wt_avg = round(wt_avg, 2), race = as.factor(race)) %>%
-    ggplot(aes(x = race, y = wt_avg, fill = race)) +
+  race_bar_plot <- df %>% 
+    mutate(wt_avg = round(wt_avg, 2), 
+           race = factor(race, levels = rev(c("Asian", "White", 
+                                          "Latinx/Hispanic", "Black")))) %>%
+    ggplot(aes(x = race, y = wt_avg)) +
     geom_bar(stat="identity") +
     labs(y = "Weighted Average Round Trip Time (minutes)",
          x = "Race/Ethnicity Group") +
-    geom_text(aes(label=wt_avg), vjust=-0.3, size=3.5) +
-    scale_fill_manual(values = c("#1696d2", "#fdbf11", "#000000", "#d2d2d2"),
-                       guide = 'none') 
+    geom_text(aes(label=wt_avg), hjust = -0.3) +
+    scale_y_continuous(expand = expand_scale(mult = c(0, 0.1))) +
+    coord_flip() +
+    remove_axis(axis = "x", flip = TRUE)
   
   ggsave(
     plot = race_bar_plot,
     filename = here("routing/images", 
                     str_glue("access_to_{opp_formatted}_{dur_type_formatted}_race.png")),
-    height = 3.5, width = 5, units = "in", dpi = 500)
+    height = 3.5, width = 6, units = "in", dpi = 500)
   
   return(race_bar_plot)
 }
@@ -440,10 +459,10 @@ make_facet_map_race_avg <- function(county_shp, ttc, opp, dur_type, road) {
                  names_prefix = "pct_pov_", 
                  values_to = "wt_min_dur") %>%
     mutate(race = case_when(
-      race == "asian" ~ "Non-Latinx Asian",
-      race == "black" ~ "Non-Latinx Black",
+      race == "asian" ~ "Asian",
+      race == "black" ~ "Black",
       race == "hisp" ~ "Latinx/Hispanic",
-      race == "white" ~ "Non-Latinx White"
+      race == "white" ~ "White"
     ))
   
   all_data <- county_shp %>%
@@ -491,7 +510,12 @@ make_dot_density_race <- function(county_shp){
     pivot_longer(-c(GEOID),
                  names_to = "race", 
                  names_prefix = "pov_", 
-                 values_to = "pop_pov") 
+                 values_to = "pop_pov") %>%
+    mutate(race = case_when(
+               race == "asian" ~ "Asian",
+               race == "black" ~ "Black",
+               race == "hisp" ~ "Latinx/Hispanic",
+               race == "white" ~ "White"))
   
   all_data <- county_shp %>%
     select(GEOID) %>%
@@ -529,7 +553,8 @@ make_dot_density_race <- function(county_shp){
       stroke = FALSE,
       shape = 19
     ) +
-    facet_wrap(~group, ncol = 2)
+    facet_wrap(~group, ncol = 2) +
+    labs(color = "Race/Ethnicity\nGroup")
   
   ggsave(
     plot = dot_map,
