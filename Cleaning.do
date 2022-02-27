@@ -263,35 +263,10 @@ replace store_type = "Misc" if regexm(location_name, "Library") ///
 	| regexm(location_name, "Gajin Ramen Shop")
 replace store_type = "Supermarket/Grocery Store" if regexm(location_name, "Brook Market")	
 
-replace type = store_type if type==""
-replace type = "Prepared meals/Meal kits" if type=="Prepared meals"
-replace type = "Prepared meals/Meal kits" if type=="Prepared Meals"
-replace type = "Prepared meals/Meal kits" if type=="Meal Kits"
-replace type = "Discount grocery pick-up site" if type=="Discount groceries"
-	
-*Fixing produce variable
-	replace fresh_produce = 1 if regexm(store_type, "Supermarket/Grocery Store")
-	replace fresh_produce = 1 if regexm(store_type, "Farmer's market")
-	replace fresh_produce = 0 if regexm(location_name, "New Start Cares Llc")
-	replace fresh_produce = 0 if regexm(location_name, "Ft Myers Commissary ") ///
-		| regexm(location_name, "Sk Dominion Market")
-	replace fresh_produce = 0 if regexm(location_name, "Brook Market")
-	replace fresh_produce = 0 if regexm(location_name, "7-Eleven") ///
-					| regexm(location_name, "Walgreens") ///
-					| regexm(location_name, "Cvs") ///
-					| regexm(location_name, "7 Eleven") 
-
 *dropping unnecessary vars
 drop naaccrqualcode	naaccrqualtype	matchedlocationtype	regionsizeunits	///
 	interpolationtype interpolationsubtype	featurematchinggeographytype ///
 	featurematchinghierarchy	tiehandlingstrategytype	geocodequalitytype 
-
-*Cleaning the fresh_produce var
-replace fresh_produce = 0 if regexm(location_name, "Exxon")
-replace fresh_produce = 0 if regexm(location_name, "Speedway")
-replace fresh_produce = 0 if regexm(location_name, "Dollar Tree")
-replace fresh_produce = 0 if regexm(location_name, "Dollartree")
-replace fresh_produce = 1 if regexm(location_name, "Amazon Fresh")
 
 *Dropping sites outside of the sample frame (restaurants and c-stores)
 drop if store_type == "Convenience store/Other retail"
