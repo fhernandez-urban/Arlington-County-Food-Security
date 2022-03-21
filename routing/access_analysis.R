@@ -312,10 +312,10 @@ map_char_access <- map_access_within_t(
            dur_type == "TRANSIT") %>%
     mutate(food_type = factor(case_when(food_type == "char_open_all" ~ "Open year-round,\nno eligibility requirements",
                                  food_type == "char_open_weekly" ~ "Open weekly year-round,\nno eligibility requirements",
-                                 food_type == "char_open_flexible_weekly" ~ "Open weekly and non-traditional hours\n year-round, no eligibility requirements"),
+                                 food_type == "char_open_flexible_weekly" ~ "Open weekly and non traditional hours\n year-round, no eligibility requirements"),
                               levels = c("Open year-round,\nno eligibility requirements", 
                                          "Open weekly year-round,\nno eligibility requirements",
-                                         "Open weekly and non-traditional hours\n year-round, no eligibility requirements"))
+                                         "Open weekly and non traditional hours\n year-round, no eligibility requirements"))
            ),
   county_shp = acs,
   opp = "charitable food locations",
@@ -548,3 +548,14 @@ ggsave(
   height = 6, width = 10, units = "in", dpi = 500, 
   device = cairo_pdf)
   
+acs = get_acs(state = "51", county = "013", geography = "county",
+              variables = c(black = "B02001_003", 
+                            white = "B02001_002", 
+                                 total_pop = "B01003_001",
+                                 hispanic = "B03003_003", 
+                                 asian = "B02001_005", 
+                                 total_pop_pov = "S1701_C01_001",
+                                 pov_white = "S1701_C02_013",
+                                 pov_black = "S1701_C02_014",
+                                 pov_asian = "S1701_C02_016",
+                                 pov_hisp = "S1701_C02_020"))

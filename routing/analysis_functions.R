@@ -141,7 +141,7 @@ map_time_to_closest <- function(county_shp, ttc, opp, need_var, dur_type, road){
     geom_sf(data = road,
             color="grey", fill="white", size=0.25, alpha =.5) +
     scale_fill_gradientn(colours = urban_colors, 
-                         name = "Round-Trip\nTime (minutes)", 
+                         name = "Round-trip\ntime (minutes)", 
                          limits = c(0, 60),
                          breaks=c(0, 20, 40, 60)) +
     scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
@@ -303,7 +303,7 @@ map_access_within_t <- function(ttc,
     geom_sf(data = road,
             color="white", fill="white", size=0.25, alpha =.5) +
     scale_fill_manual(values = c("grey", palette_urbn_main[["yellow"]]),
-                         name = str_glue("Access to site in\n{t_limit} min round-trip")
+                         name = str_glue("Access to site in\n{t_limit} min round trip")
                          ) +
     scale_color_manual(values = c("white", palette_urbn_main[["magenta"]]),
                        guide = 'none') +
@@ -312,12 +312,12 @@ map_access_within_t <- function(ttc,
           legend.key.size = unit(0.75, "cm"), 
           legend.title = element_text(size=12), #change legend title font size
           legend.text = element_text(size=12)) +
-    facet_wrap(~food_type, nrow = 1)
+    facet_wrap(~food_type, nrow = 2)
   ggsave(
     plot = access_in_t,
     filename = here("routing/images", 
                     str_glue("access_to_{opp_formatted}_in_{t_limit}_{dur_type_formatted}.pdf")),
-    height = 4, width = 10, units = "in", dpi = 500, 
+    height = 6, width = 7, units = "in", dpi = 500, 
     device = cairo_pdf)
   
   return(access_in_t)
@@ -514,7 +514,7 @@ make_dot_density_race <- function(county_shp){
     mutate(race = case_when(
                race == "asian" ~ "Asian",
                race == "black" ~ "Black",
-               race == "hisp" ~ "Latinx/Hispanic",
+               race == "hisp" ~ "Hispanic/Latinx",
                race == "white" ~ "White"))
   
   all_data <- county_shp %>%
@@ -554,7 +554,8 @@ make_dot_density_race <- function(county_shp){
       shape = 19
     ) +
     facet_wrap(~group, ncol = 2) +
-    labs(color = "Race/Ethnicity\nGroup")
+    labs(color = "Racial/Ethnic\nGroup") +
+    theme(legend.text=element_text(size=12))
   
   ggsave(
     plot = dot_map,
