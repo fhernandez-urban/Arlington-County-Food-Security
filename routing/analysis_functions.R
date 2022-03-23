@@ -250,9 +250,9 @@ map_count_within_t <- function(count_within_t,
     #guides(fill = guide_colourbar(barheight = 8)) +
     theme(legend.position = "right", 
           legend.box = "vertical", 
-          legend.key.size = unit(1, "cm"), 
-          legend.title = element_text(size=16), #change legend title font size
-          legend.text = element_text(size=16))
+          legend.key.size = unit(0.5, "cm"), 
+          legend.title = element_text(size=10), #change legend title font size
+          legend.text = element_text(size=10))
     ggsave(
       plot = count_t,
       filename = here("routing/images", 
@@ -554,8 +554,9 @@ make_dot_density_race <- function(county_shp){
       shape = 19
     ) +
     facet_wrap(~group, ncol = 2) +
-    labs(color = "Racial/Ethnic\nGroup") +
-    theme(legend.text=element_text(size=12))
+    labs(color = "Racial/ethnic\ngroup") +
+    theme(legend.text=element_text(size=10),
+      legend.title=element_text(size=12))
   
   ggsave(
     plot = dot_map,

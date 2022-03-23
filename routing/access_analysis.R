@@ -548,7 +548,7 @@ ggsave(
   height = 6, width = 10, units = "in", dpi = 500, 
   device = cairo_pdf)
   
-acs = get_acs(state = "51", county = "013", geography = "county",
+acs_pov = get_acs(state = "51", county = "013", geography = "county",
               variables = c(black = "B02001_003", 
                             white = "B02001_002", 
                                  total_pop = "B01003_001",
@@ -558,4 +558,7 @@ acs = get_acs(state = "51", county = "013", geography = "county",
                                  pov_white = "S1701_C02_013",
                                  pov_black = "S1701_C02_014",
                                  pov_asian = "S1701_C02_016",
-                                 pov_hisp = "S1701_C02_020"))
+                                 pov_hisp = "S1701_C02_020"),
+              output= "wide") %>%
+  select(!ends_with("M")) %>%
+  mutate(across(starts_with("pov"), ~.x/total_pop_povE, .names = "pct_{.col}"))
