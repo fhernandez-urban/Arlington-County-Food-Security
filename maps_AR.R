@@ -26,7 +26,7 @@ library(scales)
 library(readxl)
 library(janitor)
 library(ggnewscale)
-library(GISTools)
+library(set)
 
 set_urbn_defaults(style = "map")
 #urbnthemes :: lato_import()
@@ -166,7 +166,7 @@ wide_acs <- acs %>% dplyr::select(-moe) %>%
 arco_tracts <- tigris::tracts(state = "VA",
                               cb = TRUE,
                               class = "sf") 
-arco_tracts <- subset(arco_tracts, COUNTYFP == "013")
+arco_tracts  <- subset(arco_tracts, COUNTYFP == "013")
 
 #FI/MFI data
 combined_FI_MFI <- read_csv("Raw FI/Combined FI-MFI.csv")%>%
@@ -180,10 +180,10 @@ acs_ficombo <- wide_acs %>% left_join(combined_FI_MFI, by = "GEOID") %>%
   mutate(is_high_fi = as.factor(ifelse(FI > .12, 1, 0))) 
 
 
-# acs_ficombo$pov_seniors_total[58:59] <- NA
-# acs_ficombo$pov_children_total[58:59] <- NA
-# acs_ficombo <- acs_ficombo %>% 
-#   st_transform(crs = 6487)
+acs_ficombo[c(58:59),c(4:100)] <- NA
+
+acs_ficombo <- acs_ficombo %>% 
+   st_transform(crs = 6487)
 
 
 
@@ -327,7 +327,7 @@ ggplot() +
   geom_sf(acs_ficombo, mapping = aes(fill = pct_povchildu18, color = is_high_fi), size = 0.9) +
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5)+
-  scale_fill_gradientn(colours = urban_colors, name = "Percent of children \nunder poverty line", labels = percent)+
+  scale_fill_gradientn(colours = urban_colors, name = "Percent of children \n below the poverty level", labels = percent)+
   scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                      guide = 'none') + 
   new_scale_color()+
@@ -349,7 +349,7 @@ ggplot() +
   geom_sf(acs_ficombo, mapping = aes(fill = pct_povseniors, color = is_high_fi), size = 0.9) +
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5)+
-  scale_fill_gradientn(colours = urban_colors, name = "Percent of Seniors\nunder poverty line", labels = percent)+
+  scale_fill_gradientn(colours = urban_colors, name = "Percent of older adults\n below the poverty level", labels = percent)+
   scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                      guide = 'none') + 
   new_scale_color()+
@@ -357,7 +357,7 @@ ggplot() +
           show.legend = "point", inherit.aes = F) +
   scale_color_manual(values = "#fdbf11", 
                      name = NULL,
-                     labels = "Charitable food sites \nserving seniors")+
+                     labels = "Charitable food sites\nserving older adults")+
   theme(legend.position = "right", 
         legend.box = "vertical", 
         legend.key.size = unit(1, "cm"), 
@@ -371,7 +371,7 @@ ggplot() +
   geom_sf(acs_ficombo, mapping = aes(fill = FI, color = is_high_fi), size = 0.9) +
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5)+
-  scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
+  scale_fill_gradientn(colours = urban_colors, name = "Estimated food insecurity rate", labels = percent, 
                        limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
   scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                      guide = 'none') + 
@@ -388,7 +388,7 @@ ggplot() +
   geom_sf(acs_ficombo, mapping = aes(fill = FI, color = is_high_fi), size = 0.9) +
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5)+
-  scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
+  scale_fill_gradientn(colours = urban_colors, name = "Estimated food insecurity rate", labels = percent, 
                        limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
   scale_color_manual(values = c("grey", palette_urbn_main[["magenta"]]), 
                      guide = 'none') + 
@@ -397,7 +397,7 @@ ggplot() +
           show.legend = "point", inherit.aes = F) +
   scale_color_manual(values = "#fdbf11", 
                      name = NULL,
-                     labels = "SNAP Retailers")+
+                     labels = "SNAP retailers")+
   theme(legend.position = "right", 
         legend.box = "vertical", 
         legend.key.size = unit(1, "cm"), 
@@ -410,7 +410,6 @@ ggplot() +
 
 #CFS OPEN YR AND NO ELIGIBILITY REQ
 ggplot() +
-  # map the census tracts and make food insecurity the fill, and  
   geom_sf(acs_ficombo,mapping = aes(fill = FI, color = is_high_fi), size = 0.9) +
   scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
                        limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
@@ -446,7 +445,7 @@ ggplot() +
           show.legend = "point", inherit.aes = F) +
   scale_color_manual(values = "#fdbf11", 
                      labels = "Charitable food sites",
-                     name = NULL)+
+                     name = NULL)
 ggsave("Final Maps/fsites_cfs_fullaccess.pdf", height = 6, width = 10, units = "in", dpi = 300,
        device = cairo_pdf)
 
@@ -457,7 +456,7 @@ ggsave("Final Maps/fsites_cfs_fullaccess.pdf", height = 6, width = 10, units = "
 #CFS OPEN YR AND DURING WEEKENDS AND NTH
 ggplot() +
   geom_sf(acs_ficombo,mapping = aes(fill = FI, color = is_high_fi), size = 0.6) +
-  scale_fill_gradientn(colours = urban_colors, name = "Food insecurity rate", labels = percent, 
+  scale_fill_gradientn(colours = urban_colors, name = "Estimated food insecurity rate", labels = percent, 
                        limits = c(0,.15) ,breaks=c(0, .05, .10, .15))+
   geom_sf(data = road,
           color="grey", fill="white", size=0.25, alpha =.5)+
@@ -466,14 +465,16 @@ ggplot() +
   new_scale_color()+
   geom_sf(data = char_flexible,mapping = aes(color = most_access),size = 2.5, 
           show.legend = "point", inherit.aes = F) +
-  scale_color_manual(labels = c("Open all year, no eligibility requirements, \navailable weekly, and during non-traditional hours", "Other charitable food sites"), 
-                     values = c("#fdbf11", "#ec008b"), 
+  scale_color_manual(labels = c("Open all year, no eligibility requirements, \navailable weekly and during nontraditional hours\n", 
+                                "At least one limiting accessibility characteristic"), 
+                     values = c("#fdbf11", "#5FE61A"), 
                      name = NULL)+
   theme(legend.position = "right", 
         legend.box = "vertical", 
         legend.key.size = unit(1, "cm"), 
         legend.title = element_text(size=14), #change legend title font size
-        legend.text = element_text(size=14))  
+        legend.text = element_text(size=14))
+
 ggsave("Final Maps/cfs_access.pdf", height = 6, width = 10, units = "in", dpi = 500,
        device = cairo_pdf)
 
